@@ -1,0 +1,52 @@
+Metadata-Version: 1.1
+Name: spa-cli
+Version: 1.0.0
+Summary: Un cli para manejar proyectos de API con flask
+Author: David Cuy
+Author-email: david.cuy.sanchez@gmail.com
+Home-page: https://github.com/DavidCuy/spa-cli
+Requires-Python: >=3.10,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+
+Requires-Dist: cookiecutter (>=2.6.0,<3.0.0)
+Requires-Dist: pydantic (>=2.11.9,<3.0.0)
+Requires-Dist: python-dotenv (>=1.1.1,<2.0.0)
+Requires-Dist: toml (>=0.10.2,<0.11.0)
+
+Description-Content-Type: text/markdown
+
+# spa-cli
+
+Un cli para manejar proyectos de API con flask.
+
+> Se recomienda la instalación de docker para tener las últimas mejoras y actualizaciones. Algunas características sólo están con docker
+
+Se recomienda utilizar el módulo *virtualenv* para los proyectos generados
+
+Para _windows_:
+````commandline
+python -m venv venv
+./venv/Scripts/activate
+````
+
+Para _macOS_ o _linux_:
+````commandline
+python -m venv venv
+source ./venv/Scripts/activate
+````
+
+Posteriormente instale el cli
+
+````commandline
+pip install spa-cli
+````
+
+Para iniciar un proyecto ejecute el siguiente comando y responda las preguntas que salgan en el prompt:
+
+````commandline
+spa-cli project init
+pip install -r requirements.txt
+````
+

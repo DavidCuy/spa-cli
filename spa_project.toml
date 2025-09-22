@@ -1,0 +1,19 @@
+[spa.project.definition]
+name = ""
+description = ""
+
+[spa.template.files]
+model = ".spa/templates/model.txt"
+service = ".spa/templates/service.txt"
+controller = ".spa/templates/controller.txt"
+lambda = ".spa/templates/lambda.txt"
+
+[spa.project.folders]
+root = "src"
+models = "src/layers/core/python/core_db/models"
+services = "src/layers/core/python/core_db/services"
+controllers = "src/layers/core/python/core_http/controllers"
+lambdas = "infra/components/lambdas"
+
+[tool.poetry.dependencies]
+spa = { path = "spa-cli/spa_cli", develop = true }
