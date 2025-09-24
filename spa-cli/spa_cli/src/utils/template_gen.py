@@ -16,7 +16,7 @@ def generate_project_template(project_name: str,
                             secret_name: str,
                             pattern_version = 'main',
                             project_description: str = 'Autogenerado por SPA-CLI'):
-    """Descarga y configura el template de patron para flask
+    """Descarga y configura el template de patron para Serverless
 
     Args:
         project_name (str): Nombre del proyecto

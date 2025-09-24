@@ -1,15 +1,14 @@
 from ...globals import Constants, DRIVERS, load_config
 from ..utils.template_gen import generate_project_template, read_project_config
 from ..utils.install_local_layers import install_layers
+from ..utils.up_local_server import main as up_local_server
 
 import os
-import sys
 import json
 import typer
 from typing import cast
 from click.types import Choice
 from pathlib import Path
-from shutil import which
 
 app = typer.Typer()
 
@@ -92,48 +91,18 @@ def install_project():
     except:
         typer.echo('No se puedo leer la configuracion del proyecto', color=typer.colors.RED)
         raise typer.Abort()
-    typer.echo('Instalando bibliotecas')
     install_layers(project_config)
 
-@app.command('run')
-def run_app(
-        method: str = typer.Option(help='Método para levantar la aplicación', default='flask-run'),
-        only_project_app: bool = typer.Option(help='Indica si solo se levanta la app usando docker', default=False),
-        rebuild_docker: bool = typer.Option(help='Indica si solo se levanta o se construye la app usando docker', default=False)):
-    if only_project_app and not (method == 'docker'):
-        typer.echo('Solo se puede usar "only-docker-app" seleccionando docker como método de ejecución')
-        raise typer.Abort()
-    if rebuild_docker and not (method == 'docker'):
-        typer.echo('Solo se puede usar "rebuild_docker" seleccionando docker como método de ejecución')
-        raise typer.Abort()
+@app.command('run-api')
+def run_app():
     try:
-        project_config = read_project_config()
+        project_config = load_config()
     except:
         typer.echo('No se puedo leer la configuracion del proyecto', color=typer.colors.RED)
         raise typer.Abort()
-    if method == 'flask-run':
-        python_path = __get_venv_python_path()
-        __set_flask_env()
-
-        os.system(f'{python_path} -m flask run --host=0.0.0.0')
-    else:
-        typer.echo('El método especificado no está permitido [flask-run, docker]')
+    
+    typer.echo('Iniciando servidor local')
+    up_local_server(project_config)
+    
 
 
-def __set_flask_env():
-    os.environ['FLASK_APP'] = 'api'
-    os.environ['FLASK_RUN_HOST'] = '0.0.0.0'
-    os.environ['FLASK_ENV'] = 'development'
-
-
-def __verify_venv():
-    if sys.prefix != sys.base_prefix:
-        typer.echo('No se reconocio ambiente virtual')
-        if not Path.exists(Path(os.getcwd()).joinpath('venv')):
-            typer.echo('No se encontró carpeta de ambiente virtual')
-            os.system('python -m venv venv')
-
-
-def __get_venv_python_path():
-    __verify_venv()
-    return '.\\venv\\Scripts\\python' if sys.platform.lower().startswith('win') else './venv/bin/python'
