@@ -1,6 +1,6 @@
-from ...globals import Constants, DRIVERS, SQL_PORTS_DEFAULT
+from ...globals import Constants, DRIVERS, load_config
 from ..utils.template_gen import generate_project_template, read_project_config
-from ..utils.strings import get_random_string
+from ..utils.install_local_layers import install_layers
 
 import os
 import sys
@@ -87,11 +87,14 @@ def read_config():
 
 @app.command('install')
 def install_project():
+    try:
+        project_config = load_config()
+    except:
+        typer.echo('No se puedo leer la configuracion del proyecto', color=typer.colors.RED)
+        raise typer.Abort()
     python_path = __get_venv_python_path()
     typer.echo('Instalando bibliotecas')
-    os.system(f'{python_path} -m pip install -r requirements.txt')
-
-
+    install_layers(project_config, Path(Path.cwd() / python_path))
 
 @app.command('run')
 def run_app(

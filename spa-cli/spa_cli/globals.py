@@ -114,11 +114,7 @@ class Files(BaseConf):
     model: str
     service: str
     controller: str
-    endpoint: str
-    
-    serviceEndpointConf: str
-    controllerEndpointConf: str
-    endpointConf: str
+    lambda: str
 
 
 @dataclass
@@ -126,7 +122,7 @@ class Folders(BaseConf):
     models: str
     services: str
     controllers: str
-    endpoints: str
+    lambdas: str
     root: str
     jsons: str
 
@@ -134,6 +130,8 @@ class Folders(BaseConf):
 class Definition(BaseConf):
     name: str
     description: str
+    author: str
+    author_email: str
 
 @dataclass
 class Project(BaseConf):
@@ -171,7 +169,7 @@ class Config(BaseConf):
 
 
 def load_config(path="spa_project.toml") -> Config:
-    config_path = Path(path)
+    config_path = Path(Path.cwd() / path)
     if not config_path.exists():
         typer.echo("config file not found in the project.", color=typer.colors.YELLOW)
         load_dotenv(".env")
@@ -179,6 +177,8 @@ def load_config(path="spa_project.toml") -> Config:
         config_path.write_text(f"""[spa.project.definition]
 name = "{app_name}"
 description = ""
+author = "David Cuy"
+author_email = ""
 
 [spa.template.files]
 model = ".spa/templates/model.txt"
@@ -197,5 +197,9 @@ lambdas = "infra/components/lambdas"
         typer.echo(
             f"Created config file at {config_path} in this path you can find all configuration for the project here.")
         typer.echo(f"Please add the file {config_path} to git tracking and commit it")
-    toml_config = toml.loads(config_path.read_text())
+    try:
+        toml_config = toml.loads(config_path.read_text())
+    except Exception as e:
+        typer.echo("Error reading the config file, please check the file format.", color=typer.colors.RED)
+        raise 
     return Config.from_dict(toml_config["spa"])
