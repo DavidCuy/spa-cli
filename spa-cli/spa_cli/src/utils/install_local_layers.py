@@ -69,7 +69,7 @@ setuptools.setup(
 )
 '''
 
-def install_layers(project_config: Config, python_path: str):
+def install_layers(project_config: Config):
     global TEMPLATE_SETUP
     SETUP = TEMPLATE_SETUP.format(
         version=LAYERS_VERSIONS,

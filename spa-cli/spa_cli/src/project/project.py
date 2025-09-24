@@ -92,9 +92,8 @@ def install_project():
     except:
         typer.echo('No se puedo leer la configuracion del proyecto', color=typer.colors.RED)
         raise typer.Abort()
-    python_path = __get_venv_python_path()
     typer.echo('Instalando bibliotecas')
-    install_layers(project_config, Path(Path.cwd() / python_path))
+    install_layers(project_config)
 
 @app.command('run')
 def run_app(
