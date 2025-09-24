@@ -23,16 +23,14 @@ def init_project(
     db_config = {
         "db_engine": None,
         "db_driver": None,
-        "db_host": None,
-        "db_port": None,
-        "db_user": None,
-        "db_pass": None,
-        "db_name": None,
-        "from_secret": False,
         "secret_name": '',
     }
     project_name = typer.prompt("Nombre del proyecto")
+    project_description = typer.prompt("Descripción del proyecto")
     
+    author_name = typer.prompt("Nombre del autor", default=os.getlogin())
+    author_email = typer.prompt("Email del autor", default="")
+
     dbChoices = Choice([
         Constants.MYSQL_ENGINE.value,
         Constants.POSTGRESQL_ENGINE.value
@@ -43,14 +41,21 @@ def init_project(
         show_choices=True,
         type=dbChoices
     )
-    db_config['db_driver'] = DRIVERS[Constants.MYSQL_ENGINE.value]
-
-    db_config['from_secret'] = typer.confirm("¿Las credenciales de la base de datos se encuentra en AWS Secret Manager?")
-
-    if db_config['from_secret']:
-        db_config['secret_name'] = typer.prompt("Escriba el nombre del secreto. Revise la documentación para el formato correcto")
     
-    generate_project_template(project_name, **db_config, pattern_version=pattern_version)
+    aws_region = typer.prompt("Región de AWS", default="us-east-1")
+    
+    db_config['db_driver'] = DRIVERS[Constants.MYSQL_ENGINE.value]
+    db_config['secret_name'] = typer.prompt("Escriba el nombre del secreto para las credenciales de la base de datos - Revise la documentación para el formato correcto")
+    
+    generate_project_template(
+        project_name,
+        author_name=author_name,
+        author_email=author_email,
+        **db_config,
+        aws_region=aws_region,
+        pattern_version=pattern_version,
+        project_description=project_description
+    )
         
     
     local_project_dir = Path(os.getcwd()).joinpath(project_name).joinpath('.spa')

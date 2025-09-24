@@ -1,6 +1,5 @@
 import os
 import json
-import typer
 from typing import cast
 from cookiecutter.main import cookiecutter
 from functools import wraps
@@ -9,48 +8,39 @@ from pathlib import Path
 from ...globals import Constants
 
 def generate_project_template(project_name: str,
+                            author_name: str,
+                            author_email: str,
                             db_engine: str,
                             db_driver: str,
-                            db_host: str,
-                            db_port: int,
-                            db_user: str,
-                            db_pass: str,
-                            db_name: str,
-                            from_secret: bool = False,
-                            secret_name: str = '',
-                            pattern_version = 'main'):
+                            aws_region: str,
+                            secret_name: str,
+                            pattern_version = 'main',
+                            project_description: str = 'Autogenerado por SPA-CLI'):
     """Descarga y configura el template de patron para flask
 
     Args:
         project_name (str): Nombre del proyecto
+        author_name (str): Nombre del autor
+        author_email (str): Email del autor
         db_engine (str): Motor de base de datos
         db_driver (str): Driver de base de datos
-        db_host (str): Host de base de datos
-        db_port (int): Puerto de base de datos
-        db_user (str): Usuario de base de datos
-        db_pass (str): Contraseña de base de datos
-        db_name (str): Nombre de base de datos
+        aws_region (str): Región de AWS para el proyecto
+        secret_name (str): Nombre del secreto en AWS Secret Manager
         pattern_version (str, optional): Rama o tag de github a utilizar del template. Lates utiliza la rama main.
+        project_description (str, optional): Descripción del proyecto. Defaults to 'Autogenerado por SPA-CLI'.
     """
     config_override = {
         "directory_name": project_name,
         "develop_branch": "main",
         "dbDialect": db_engine,
         "_dbDriver": db_driver,
+        "project_short_description": project_description,
+        "aws_region": aws_region,
+        "author_name": author_name,
+        "author_email": author_email,
+        "db_secret_name": secret_name
     }
-    if not from_secret:
-        config_override.update({
-            "db_host": db_host,
-            "db_user": db_user,
-            "db_pass": db_pass,
-            "db_name": db_name,
-            "_db_port": db_port
-        })
-    else:
-        config_override.update({
-            "from_secret": from_secret,
-            "secret_name": secret_name
-        })
+
     cookiecutter_kwargs = {
         "directory": "code",
         "overwrite_if_exists": True,

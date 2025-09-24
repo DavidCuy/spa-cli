@@ -9,9 +9,7 @@ import datetime
 from dotenv import load_dotenv
 
 class Constants(Enum):
-    PROJECT_TEMPLATE = "https://github.com/DavidCuy/serverless-python-application-pattern"
-    SQLITE_ENGINE = "sqlite"
-    SQLSERVER_ENGINE = "mssql"
+    PROJECT_TEMPLATE = "https://github.com/DavidCuy/serverless-python-application-pattern.git"
     MYSQL_ENGINE = "mysql"
     POSTGRESQL_ENGINE = "postgresql"
     
@@ -28,8 +26,6 @@ class Constants(Enum):
     JSON_DATETIME_DTYPE = 'datetime'
 
 DRIVERS = {
-    Constants.SQLITE_ENGINE.value: "sqlite",
-    Constants.SQLSERVER_ENGINE.value: "pyodbc",
     Constants.MYSQL_ENGINE.value: "pymysql",
     Constants.POSTGRESQL_ENGINE.value: "psycopg2"
 }
@@ -38,8 +34,6 @@ def get_driver_from_engine(engine: Constants):
     return DRIVERS.get(engine.value, None)
 
 SQL_PORTS_DEFAULT = {
-    Constants.SQLITE_ENGINE.value: "",
-    Constants.SQLSERVER_ENGINE.value: "1433",
     Constants.MYSQL_ENGINE.value: "3306",
     Constants.POSTGRESQL_ENGINE.value: "5432"
 }
