@@ -1,0 +1,166 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Avasa - Integraci\u00f3n con Kavak",
+    "description": "API para exponer veh\u00edculos publicables y recibir retroalimentaci\u00f3n de Kavak",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://sandbox.example.avasa.com",
+      "description": "Sandbox / QA"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Eco para testeo del api",
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Empty"
+                }
+              }
+            }
+          }
+        },
+        "x-amazon-apigateway-integration": {
+          "responses": {
+            "default": {
+              "statusCode": "200",
+              "responseTemplates": {
+                "application/json": "{\"message\":\"Avasa Kavak Integration API\"}"
+              }
+            }
+          },
+          "requestTemplates": {
+            "application/json": "{\"statusCode\": 200}"
+          },
+          "passthroughBehavior": "when_no_match",
+          "type": "mock"
+        }
+      }
+    },
+    "definition": {
+      "/v1/vehicles/{vin}": {
+        "get": {
+          "summary": "Consulta informaci\u00f3n de un veh\u00edculo por VIN",
+          "description": "Devuelve la informaci\u00f3n de un veh\u00edculo.    Requiere autenticaci\u00f3n **OAuth2 Client Credentials** y API Key. \n",
+          "operationId": "getVehicleByVin",
+          "parameters": [
+            {
+              "name": "vin",
+              "in": "path",
+              "required": true,
+              "description": "VIN del veh\u00edculo a consultar",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Informaci\u00f3n del veh\u00edculo",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "vin": {
+                        "type": "string"
+                      },
+                      "brand": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "year": {
+                        "type": "integer"
+                      },
+                      "version": {
+                        "type": "string"
+                      },
+                      "km": {
+                        "type": "integer"
+                      },
+                      "price": {
+                        "type": "number",
+                        "format": "float"
+                      },
+                      "location": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string"
+                          },
+                          "city": {
+                            "type": "string"
+                          },
+                          "site": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "images": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string"
+                            },
+                            "photo_url": {
+                              "type": "string",
+                              "format": "uri"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Token inv\u00e1lido o expirado"
+            },
+            "403": {
+              "description": "Veh\u00edculo no publicable (checklist incompleto)"
+            },
+            "404": {
+              "description": "VIN no encontrado"
+            }
+          },
+          "security": [
+            {
+              "api_key": []
+            },
+            {
+              "cognitoAuth": []
+            }
+          ]
+        }
+      }
+    },
+    "name": "get_vehicle_by_vin"
+  },
+  "components": {
+    "schemas": {
+      "Empty": {
+        "type": "object",
+        "title": "Empty Schema"
+      }
+    },
+    "securitySchemes": {
+      "api_key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    }
+  }
+}
