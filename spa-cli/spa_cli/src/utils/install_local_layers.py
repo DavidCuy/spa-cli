@@ -1,4 +1,5 @@
 import os
+import tqdm
 import sys
 import typer
 import subprocess
@@ -139,3 +140,25 @@ def install_layers(project_config: Config):
             typer.echo(str(e))
 
     typer.echo(f'Se han instalado las siguientes layers: {list(map(lambda l: l.name, layers))}')
+
+def build_layers(layers_path: Path, tmp_path: Path = Path('tmp_build_layer')):
+    if os.path.exists(tmp_path):
+        rmtree(tmp_path)
+
+    if not os.path.exists(tmp_path):
+        os.mkdir(tmp_path)
+
+    for layer in tqdm.tqdm(os.listdir(layers_path)):
+        layer_path = layers_path.joinpath(layer)
+        if not layer_path.is_dir():
+            continue  
+
+        copytree(layer_path, tmp_path.joinpath(layer))
+
+        layer_path_res = str(tmp_path.joinpath(layer).joinpath('python').resolve())
+        req_path = str(tmp_path.joinpath(layer).joinpath('python').joinpath('requirements.txt').resolve())
+        try:
+            typer.echo(f'running command: pip install -r {req_path} -t {layer_path_res}')
+            os.system(f'pip install -r {req_path} -t {layer_path_res}')
+        except Exception as e:
+            typer.echo(f"WARNING: {str(e)}", color=typer.colors.YELLOW)

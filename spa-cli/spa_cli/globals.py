@@ -128,6 +128,7 @@ class Folders(BaseConf):
     lambdas: str
     root: str
     jsons: str
+    layers: str
 
 @dataclass
 class Definition(BaseConf):
@@ -135,6 +136,7 @@ class Definition(BaseConf):
     description: str
     author: str
     author_email: str
+    base_api: str
 
 @dataclass
 class Project(BaseConf):
@@ -182,6 +184,7 @@ name = "{app_name}"
 description = ""
 author = "David Cuy"
 author_email = ""
+base_api = "api.yaml"
 
 [spa.template.files]
 model = ".spa/templates/models/model.txt"
@@ -199,6 +202,7 @@ services = "src/layers/databases/python/core_db/services"
 controllers = "src/layers/core/python/core_http/controllers"
 jsons = ".spa/templates/json"
 lambdas = "src/lambdas"
+layers = "src/layers"
         """)
         typer.echo(
             f"Created config file at {config_path} in this path you can find all configuration for the project here.")

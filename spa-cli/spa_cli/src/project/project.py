@@ -1,7 +1,8 @@
 from ...globals import Constants, DRIVERS, load_config
-from ..utils.template_gen import generate_project_template, read_project_config
-from ..utils.install_local_layers import install_layers
+from ..utils.template_gen import generate_project_template
+from ..utils.install_local_layers import install_layers, build_layers
 from ..utils.up_local_server import main as up_local_server
+from ..utils.build import build_lambdas, build_lambda_stack, build_api
 
 import os
 import json
@@ -9,6 +10,7 @@ import typer
 from typing import cast
 from click.types import Choice
 from pathlib import Path
+from shutil import copytree, rmtree
 
 app = typer.Typer()
 
@@ -69,21 +71,6 @@ def init_project(
         }, f)
     
 
-@app.command('configure')
-def read_config():
-    try:
-        project_config = read_project_config()
-    except:
-        typer.echo('No se puedo leer la configuracion del proyecto', color=typer.colors.RED)
-        raise typer.Abort()
-    
-    output_str = ""
-    for key in project_config.keys():
-        output_str += f"{key} = {project_config[key]}\n"
-    
-    typer.echo(output_str)
-
-
 @app.command('install')
 def install_project():
     try:
@@ -105,4 +92,58 @@ def run_app():
     up_local_server(project_config)
     
 
+@app.command('build')
+def build_project():
+    try:
+        project_config = load_config()
+    except:
+        typer.echo('No se puedo leer la configuracion del proyecto', color=typer.colors.RED)
+        raise typer.Abort()
+    
+    typer.echo('Construyendo proyecto')
+    build_path = Path(os.getcwd()).joinpath('build')
+    if build_path.exists():
+        for item in os.listdir(build_path):
+            item_path = os.path.join(build_path, item)
+            if os.path.isdir(item_path):
+                try:
+                    rmtree(item_path)
+                    typer.echo(f"Deleted directory: {item_path}")
+                except OSError as e:
+                    typer.echo(f"Error deleting directory '{item_path}': {e}")
+        
+        rmtree(build_path)
+        typer.echo(f"Deleted directory: {build_path}")
+    os.mkdir(build_path)
 
+    copytree(
+        Path(os.getcwd()).joinpath('infra'),
+        build_path,
+        dirs_exist_ok=True
+    )
+
+    layers_path = Path(os.getcwd()) / project_config.project.folders.layers
+    lambdas_path = Path(os.getcwd()) / project_config.project.folders.lambdas
+    output_layers_path = build_path / 'tmp_build_layer'
+
+    typer.echo(f'Building layers from {layers_path} into {output_layers_path}...')
+    build_layers(layers_path, output_layers_path)
+
+    typer.echo(f'Building lambdas from {lambdas_path}...')
+    build_lambdas(lambdas_path, build_path / 'components' / 'lambdas')
+
+    typer.echo('Building lambda stack...')
+    build_lambda_stack(
+        build_lambdas_path=build_path / "components" / "lambdas",
+        environment=os.getenv("ENVIRONMENT") or "dev",
+        app_name=os.getenv("APP_NAME") or cast(str, project_config.project.definition.name)
+    )
+
+    typer.echo('Building API definition...')
+    build_api(
+        api_path=Path(project_config.project.definition.base_api),
+        lambdas_path=build_path / "components" / "lambdas",
+        output_file=build_path / "components" / "openapi.json"
+    )
+
+    typer.echo('Build completed.')

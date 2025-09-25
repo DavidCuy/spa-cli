@@ -1,7 +1,12 @@
 import os
+import json
+import tqdm
 import yaml
+import typer
 from pathlib import Path
 from typing import List
+from shutil import copytree
+from typing import cast
 
 def get_lambda_dirs_with_endpoint(base_path: Path) -> List[str]:
     result = []
@@ -31,3 +36,69 @@ def get_api_config(lambdas_path: Path):
             endpoint_list.append({"definition": yaml.safe_load(f), "name": dir_name})
 
     return import_lambdas, endpoint_list
+
+def build_lambdas(lambdas_path: Path, build_path: Path):
+    """
+    Copia toda la estructura de src/lambdas a infra/components/lambdas,
+    manteniendo la jerarquía de carpetas.
+    """
+
+    # Crear destino si no existe
+    build_path.mkdir(parents=True, exist_ok=True)
+
+    # Iterar sobre cada subcarpeta dentro de src/lambdas
+    for lambda_dir in tqdm.tqdm(lambdas_path.iterdir()):
+        if lambda_dir.is_dir():
+            target = build_path / lambda_dir.name
+            # copytree falla si ya existe el destino → usamos dirs_exist_ok
+            copytree(lambda_dir, target, dirs_exist_ok=True)
+            typer.echo(f"Copiado {lambda_dir} → {target}")
+
+
+def build_lambda_stack(build_lambdas_path: Path, environment: str, app_name: str):
+    lambdas_init = build_lambdas_path / "__init__.py"
+
+    excluded_dirs = [
+        "__pycache__"
+    ]
+
+    for lambda_dir in tqdm.tqdm(build_lambdas_path.iterdir()):
+        if lambda_dir.is_dir() and lambda_dir.name not in excluded_dirs:
+            typer.echo(f"Procesando {lambda_dir.name} para __init__.py")
+
+            lambda_camel_case = lambda_dir.name.replace("-", "_").title().replace("_", "")
+
+            infra_config = ""
+            with open(lambdas_init, "r") as f:
+                infra_config = f.read()
+
+            with open(lambdas_init, "a") as f:
+                header = f"############ Lambda{lambda_camel_case}Stack ############"
+                if header in infra_config:
+                    typer.echo(f"Sección {header} ya existe en __init__.py, se omite.")
+                    continue
+                f.write(f"""
+        {header}
+        from .{lambda_dir.name}.infra_config import Lambda{lambda_camel_case}Stack
+
+        Lambda{lambda_camel_case}Stack(
+            name="{environment}-{app_name}-{lambda_camel_case}Stack",
+            environment="{environment}",
+            app_name="{app_name}",
+            lambda_execution_role_arn=lambda_execution_role_arn,
+            layers=layers,
+            sg_ids=sg_ids,
+            subnets_ids=subnets_ids,
+            tags=DEFAULT_TAGS
+        )\n\n""")
+
+def build_api(api_path: Path, lambdas_path: Path, output_file: Path):
+        
+    api_definition = get_api_initial_definition(api_path)
+    _, endpoint_list = get_api_config(lambdas_path)
+
+    for ep in endpoint_list:
+        cast(dict, api_definition['paths']).update(ep)
+
+    with open(output_file, "w+", encoding="utf-8") as f:
+        json.dump(api_definition, f, indent=2)

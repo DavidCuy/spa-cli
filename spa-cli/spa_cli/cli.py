@@ -12,7 +12,7 @@ load_dotenv()
 
 app = typer.Typer()
 app.add_typer(project.app, name='project')
-app.add_typer(model.app, name='model')
+# app.add_typer(model.app, name='model')
 app.add_typer(endpoint.app, name='endpoint')
 app.add_typer(lambda_function.app, name='lambda')
 
