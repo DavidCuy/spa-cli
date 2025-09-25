@@ -33,7 +33,7 @@ jobs:
           
           zip -r artifacts.zip dist
       - name: Upload Artifact to Deploy Job
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: artifact
           path: artifacts.zip
