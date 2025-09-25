@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 from typing import cast
 from cookiecutter.main import cookiecutter
 from functools import wraps
@@ -61,6 +62,10 @@ def add_file_to_module(module_path: Path, modelName: str, replace_import: str = 
     module_text = module_path.joinpath('__init__.py').read_text()
     module_text += f"\nfrom .{modelName} import {modelName}" if replace_import is None else f"\nfrom .{modelName} import {replace_import}"
     module_path.joinpath('__init__.py').write_text(module_text)
+
+def copy_template_file(template_path: Path, destination_path: Path, code_format_override: dict):
+    module_code = template_path.read_text().format(**code_format_override)
+    destination_path.write_text(module_code)
 
 
 def read_project_config():

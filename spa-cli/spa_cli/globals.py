@@ -114,7 +114,10 @@ class Files(BaseConf):
     model: str
     service: str
     controller: str
-    lambda: str
+    endpoint: str
+    lambda_function: str
+    test_lambda: str
+    lambda_conf: str
 
 
 @dataclass
@@ -181,18 +184,21 @@ author = "David Cuy"
 author_email = ""
 
 [spa.template.files]
-model = ".spa/templates/model.txt"
-service = ".spa/templates/service.txt"
-controller = ".spa/templates/controller.txt"
-lambda = ".spa/templates/lambda.txt"
+model = ".spa/templates/models/model.txt"
+service = ".spa/templates/models/service.txt"
+controller = ".spa/templates/models/controller.txt"
+endpoint = ".spa/templates/lambda_endpoint.txt"
+lambda_function = ".spa/templates/lambda.txt"
+test_lambda = ".spa/templates/test_lambda_function.txt"
+lambda_conf = ".spa/templates/lambda_conf.txt"
 
 [spa.project.folders]
 root = "src"
-models = "src/layers/core/python/core_db/models"
-services = "src/layers/core/python/core_db/services"
+models = "src/layers/databases/python/core_db/models"
+services = "src/layers/databases/python/core_db/services"
 controllers = "src/layers/core/python/core_http/controllers"
 jsons = ".spa/templates/json"
-lambdas = "infra/components/lambdas"
+lambdas = "src/lambdas"
         """)
         typer.echo(
             f"Created config file at {config_path} in this path you can find all configuration for the project here.")
