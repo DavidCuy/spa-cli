@@ -5,12 +5,13 @@ from ..utils.up_local_server import main as up_local_server
 from ..utils.build import build_lambdas, build_lambda_stack, build_api
 
 import os
+import re
 import json
 import typer
 from typing import cast
 from click.types import Choice
 from pathlib import Path
-from shutil import copytree, rmtree
+from shutil import copytree, rmtree, copy2
 
 app = typer.Typer()
 
@@ -118,9 +119,20 @@ def build_project():
 
     copytree(
         Path(os.getcwd()).joinpath('infra'),
-        build_path,
+        build_path.joinpath('infra'),
         dirs_exist_ok=True
     )
+    
+    for filename in os.listdir(Path(os.getcwd())):
+        if re.compile(r'Pulumi.*').match(filename):
+            source_path = os.path.join(Path(os.getcwd()), filename)
+            destination_path = os.path.join(build_path, filename)
+            try:
+                copy2(source_path, destination_path)
+                typer.echo(f"Copied '{filename}' to '{build_path}'")
+            except Exception as e:
+                typer.echo(f"Error copying '{filename}': {e}", color=typer.colors.RED)
+
 
     layers_path = Path(os.getcwd()) / project_config.project.folders.layers
     lambdas_path = Path(os.getcwd()) / project_config.project.folders.lambdas
@@ -130,11 +142,11 @@ def build_project():
     build_layers(layers_path, output_layers_path)
 
     typer.echo(f'Building lambdas from {lambdas_path}...')
-    build_lambdas(lambdas_path, build_path / 'components' / 'lambdas')
+    build_lambdas(lambdas_path, build_path.joinpath('infra') / 'components' / 'lambdas')
 
     typer.echo('Building lambda stack...')
     build_lambda_stack(
-        build_lambdas_path=build_path / "components" / "lambdas",
+        build_lambdas_path=build_path.joinpath('infra') / "components" / "lambdas",
         environment=os.getenv("ENVIRONMENT") or "dev",
         app_name=os.getenv("APP_NAME") or cast(str, project_config.project.definition.name)
     )
@@ -142,8 +154,8 @@ def build_project():
     typer.echo('Building API definition...')
     build_api(
         api_path=Path(project_config.project.definition.base_api),
-        lambdas_path=build_path / "components" / "lambdas",
-        output_file=build_path / "components" / "openapi.json"
+        lambdas_path=build_path.joinpath('infra') / "components" / "lambdas",
+        output_file=build_path.joinpath('infra') / "components" / "openapi.json"
     )
 
     typer.echo('Build completed.')
