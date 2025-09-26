@@ -132,7 +132,8 @@ def build_project():
                 typer.echo(f"Copied '{filename}' to '{build_path}'")
             except Exception as e:
                 typer.echo(f"Error copying '{filename}': {e}", color=typer.colors.RED)
-
+    
+    copy2(Path().cwd() / 'pyproject.toml', build_path / 'pyproject.toml')
 
     layers_path = Path(os.getcwd()) / project_config.project.folders.layers
     lambdas_path = Path(os.getcwd()) / project_config.project.folders.lambdas
