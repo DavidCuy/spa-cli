@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: spa-cli
-Version: 1.0.0
+Version: 1.0.1
 Summary: Un cli para manejar proyectos de API con flask
 Author: David Cuy
 Author-email: david.cuy.sanchez@gmail.com
