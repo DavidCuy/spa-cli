@@ -16,9 +16,6 @@ class Constants(Enum):
     AWS_REPOSITORY = "aws"
     OTHER_REPOSITORY = "other"
     
-    LOCALHOST_DB_DOCKER = "host.docker.internal"
-    MSSQL_SA_USER = "sa"
-
     VALID_MODEL_TYPES = (int, str, float, datetime.datetime)
     JSON_INT_DTYPE = 'int'
     JSON_FLOAT_DTYPE = 'float'
