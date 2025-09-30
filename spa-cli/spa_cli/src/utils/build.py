@@ -37,6 +37,25 @@ def get_api_config(lambdas_path: Path):
 
     return import_lambdas, endpoint_list
 
+def build_api_config(lambdas_path: Path, environment: str = None, app_name: str = None, aws_account: str = None, aws_region: str = None):
+    endpoint_dirs = get_lambda_dirs_with_endpoint(lambdas_path)
+    endpoint_list = []
+    for dir_name in endpoint_dirs:
+
+        with open(Path(lambdas_path / dir_name / "endpoint.yaml"), 'r', encoding="utf-8") as f:
+            endpoint_node = cast(dict, yaml.safe_load(f))
+            for endpoint_name in endpoint_node.keys():
+                for method in endpoint_node[endpoint_name]:
+                    if 'x-amazon-apigateway-integration' in endpoint_node[endpoint_name][method]:
+                        integration = endpoint_node[endpoint_name][method]['x-amazon-apigateway-integration']
+                        if 'uri' in integration and environment is not None:
+                            integration['uri'] = f'arn:aws:apigateway:{aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:{aws_region}:{aws_account}:function:{environment}-{app_name}-{dir_name}/invocations'
+                        if 'credentials' in integration and environment is not None:
+                            integration['credentials'] = f'arn:aws:iam::{aws_account}:role/{environment}-{app_name}-apigw-invoke-lambda-role'
+            endpoint_list.append(endpoint_node)
+
+    return endpoint_list
+
 def build_lambdas(lambdas_path: Path, build_path: Path):
     """
     Copia toda la estructura de src/lambdas a infra/components/lambdas,
@@ -95,7 +114,13 @@ def build_lambda_stack(build_lambdas_path: Path, environment: str, app_name: str
 def build_api(api_path: Path, lambdas_path: Path, output_file: Path):
         
     api_definition = get_api_initial_definition(api_path)
-    _, endpoint_list = get_api_config(lambdas_path)
+    endpoint_list = build_api_config(
+        lambdas_path,
+        environment=os.getenv("ENVIRONMENT") or "dev",
+        app_name=os.getenv("APP_NAME") or "myapp",
+        aws_account=os.getenv("AWS_ACCOUNT_ID") or "123456789012",
+        aws_region=os.getenv("AWS_REGION") or "us-east-1"
+    )
 
     for ep in endpoint_list:
         cast(dict, api_definition['paths']).update(ep)
