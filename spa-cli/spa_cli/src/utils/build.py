@@ -123,7 +123,20 @@ def build_api(api_path: Path, lambdas_path: Path, output_file: Path):
     )
 
     for ep in endpoint_list:
-        cast(dict, api_definition['paths']).update(ep)
+        try:
+            ep_path = list(ep.keys())[0]
+        except Exception as e:
+            typer.echo(f"[!] Error al procesar endpoint: {e}", color=typer.colors.RED)
+            continue
+        if ep_path in api_definition['paths']:
+            ep_methods = list(ep[ep_path].keys())
+            for ep_method in ep_methods:
+                if ep_method in api_definition['paths'][ep_path]:
+                    typer.echo(f"[!] La ruta '{ep_path}' con método '{ep_method}' ya existe en la definición OpenAPI. Se omitirá.")
+                else:
+                    cast(dict, api_definition['paths'][ep_path]).update({ep_method: ep[ep_path][ep_method]})
+        else:
+            cast(dict, api_definition['paths']).update(ep)
 
     with open(output_file, "w+", encoding="utf-8") as f:
         json.dump(api_definition, f, indent=2)

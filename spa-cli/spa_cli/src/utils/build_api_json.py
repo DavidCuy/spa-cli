@@ -11,7 +11,11 @@ def build_api_json(api_path: Path, lambdas_path: Path, base_path: Path, output_p
     _, endpoint_list = get_api_config(lambdas_path)
 
     for ep in endpoint_list:
-        cast(dict, api_definition['paths']).update(ep)
+        ep_path = list(ep.keys())[0]
+        if ep_path in api_definition['paths']:
+            typer.echo(f"[!] La ruta '{ep_path}' ya existe en la definición OpenAPI. Se omitirá.")
+        else:
+            cast(dict, api_definition['paths']).update(ep)
 
     with open(output_path, "w+", encoding="utf-8") as f:
         json.dump(api_definition, f, indent=2)
