@@ -25,7 +25,7 @@ entry_points = \
 
 setup_kwargs = {
     'name': 'spa-cli',
-    'version': '1.0.4',
+    'version': '1.0.5',
     'description': 'Un cli para manejar proyectos de API de python.',
     'author': 'David Cuy',
     'author_email': 'david.cuy.sanchez@gmail.com',
