@@ -137,15 +137,15 @@ class Definition(BaseConf):
 
 @dataclass
 class LambdaAuthorizer(BaseConf):
-    role_placeholder: str
-    lambda_placeholder: str
+    role_name: str
+    lambda_name: str
 
     @staticmethod
     def from_dict(obj: Any) -> 'LambdaAuthorizer':
         assert isinstance(obj, dict)
-        role_placeholder = from_str(obj.get("role_placeholder"))
-        lambda_placeholder = from_str(obj.get("lambda_placeholder"))
-        return LambdaAuthorizer(role_placeholder, lambda_placeholder)
+        role_name = from_str(obj.get("role_name"))
+        lambda_name = from_str(obj.get("lambda_name"))
+        return LambdaAuthorizer(role_name, lambda_name)
 
 @dataclass
 class Api(BaseConf):
@@ -230,11 +230,12 @@ lambdas = "src/lambdas"
 layers = "src/layers"
 
 # Lambda Authorizers configuration
-# Add custom authorizers with their role and lambda placeholders
+# Add custom authorizers with their role and lambda names
+# The key (e.g., 'custom1') should match the prefix before '_authorizer' in your securityScheme name
 # Example:
-# [spa.api.lambda-authorizers.MyCustomAuthorizer]
-# role_placeholder = "AUTHORIZER_ROLE_PLACEHOLDER"
-# lambda_placeholder = "AUTHORIZER_LAMBDA_PLACEHOLDER"
+# [spa.api.lambda-authorizers.custom1]
+# role_name = "custom1-authorizer-role"
+# lambda_name = "custom1-authorizer"
         """)
         typer.echo(
             f"Created config file at {config_path} in this path you can find all configuration for the project here.")
