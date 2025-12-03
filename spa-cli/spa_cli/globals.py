@@ -136,6 +136,32 @@ class Definition(BaseConf):
     base_api: str
 
 @dataclass
+class LambdaAuthorizer(BaseConf):
+    role_placeholder: str
+    lambda_placeholder: str
+
+    @staticmethod
+    def from_dict(obj: Any) -> 'LambdaAuthorizer':
+        assert isinstance(obj, dict)
+        role_placeholder = from_str(obj.get("role_placeholder"))
+        lambda_placeholder = from_str(obj.get("lambda_placeholder"))
+        return LambdaAuthorizer(role_placeholder, lambda_placeholder)
+
+@dataclass
+class Api(BaseConf):
+    lambda_authorizers: dict
+
+    @staticmethod
+    def from_dict(obj: Any) -> 'Api':
+        assert isinstance(obj, dict)
+        lambda_authorizers_raw = obj.get("lambda_authorizers", {})
+        lambda_authorizers = {
+            key: LambdaAuthorizer.from_dict(value)
+            for key, value in lambda_authorizers_raw.items()
+        }
+        return Api(lambda_authorizers)
+
+@dataclass
 class Project(BaseConf):
     definition: Definition
     folders: Folders
@@ -161,13 +187,15 @@ class Template(BaseConf):
 class Config(BaseConf):
     project: Project
     template: Template
+    api: Api = None
 
     @staticmethod
     def from_dict(obj: Any) -> 'Config':
         assert isinstance(obj, dict)
         project = Project.from_dict(obj.get("project"))
         template = Template.from_dict(obj.get("template"))
-        return Config(project, template)
+        api = Api.from_dict(obj.get("api", {})) if obj.get("api") else None
+        return Config(project, template, api)
 
 
 def load_config(path="spa_project.toml") -> Config:
@@ -200,6 +228,13 @@ controllers = "src/layers/core/python/core_http/controllers"
 jsons = ".spa/templates/json"
 lambdas = "src/lambdas"
 layers = "src/layers"
+
+# Lambda Authorizers configuration
+# Add custom authorizers with their role and lambda placeholders
+# Example:
+# [spa.api.lambda-authorizers.MyCustomAuthorizer]
+# role_placeholder = "AUTHORIZER_ROLE_PLACEHOLDER"
+# lambda_placeholder = "AUTHORIZER_LAMBDA_PLACEHOLDER"
         """)
         typer.echo(
             f"Created config file at {config_path} in this path you can find all configuration for the project here.")
