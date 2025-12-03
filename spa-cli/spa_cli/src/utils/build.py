@@ -112,31 +112,38 @@ def build_lambda_stack(build_lambdas_path: Path, environment: str, app_name: str
         )\n\n""")
 
 def build_api(api_path: Path, lambdas_path: Path, output_file: Path):
-        
+
     api_definition = get_api_initial_definition(api_path)
+
+    environment = os.getenv("ENVIRONMENT") or "dev"
+    app_name = os.getenv("APP_NAME") or "myapp"
+    aws_account = os.getenv("AWS_ACCOUNT_ID") or "123456789012"
+    aws_region = os.getenv("AWS_REGION") or "us-east-1"
+
     endpoint_list = build_api_config(
         lambdas_path,
-        environment=os.getenv("ENVIRONMENT") or "dev",
-        app_name=os.getenv("APP_NAME") or "myapp",
-        aws_account=os.getenv("AWS_ACCOUNT_ID") or "123456789012",
-        aws_region=os.getenv("AWS_REGION") or "us-east-1"
+        environment=environment,
+        app_name=app_name,
+        aws_account=aws_account,
+        aws_region=aws_region
     )
 
     for ep in endpoint_list:
-        try:
-            ep_path = list(ep.keys())[0]
-        except Exception as e:
-            typer.echo(f"[!] Error al procesar endpoint: {e}", color=typer.colors.RED)
-            continue
-        if ep_path in api_definition['paths']:
-            ep_methods = list(ep[ep_path].keys())
-            for ep_method in ep_methods:
-                if ep_method in api_definition['paths'][ep_path]:
-                    typer.echo(f"[!] La ruta '{ep_path}' con método '{ep_method}' ya existe en la definición OpenAPI. Se omitirá.")
-                else:
-                    cast(dict, api_definition['paths'][ep_path]).update({ep_method: ep[ep_path][ep_method]})
-        else:
-            cast(dict, api_definition['paths']).update(ep)
+        cast(dict, api_definition['paths']).update(ep)
+
+    # Replace authorizer placeholders in securitySchemes
+    if 'components' in api_definition and 'securitySchemes' in api_definition['components']:
+        for scheme_name, scheme_config in api_definition['components']['securitySchemes'].items():
+            if 'x-amazon-apigateway-authorizer' in scheme_config:
+                authorizer = scheme_config['x-amazon-apigateway-authorizer']
+
+                # Replace authorizerUri placeholder
+                if 'authorizerUri' in authorizer and authorizer['authorizerUri'] == 'AUTHORIZER_URI_PLACEHOLDER':
+                    authorizer['authorizerUri'] = f'arn:aws:apigateway:{aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:{aws_region}:{aws_account}:function:{environment}-{app_name}-authorizer/invocations'
+
+                # Replace authorizerCredentials placeholder
+                if 'authorizerCredentials' in authorizer and authorizer['authorizerCredentials'] == 'AUTHORIZER_ROLE_PLACEHOLDER':
+                    authorizer['authorizerCredentials'] = f'arn:aws:iam::{aws_account}:role/{environment}-{app_name}-authorizer-role'
 
     with open(output_file, "w+", encoding="utf-8") as f:
         json.dump(api_definition, f, indent=2)
