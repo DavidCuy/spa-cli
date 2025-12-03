@@ -140,36 +140,32 @@ def build_api(api_path: Path, lambdas_path: Path, output_file: Path):
             if 'x-amazon-apigateway-authorizer' in scheme_config:
                 authorizer = scheme_config['x-amazon-apigateway-authorizer']
 
+                # Extract the authorizer key by removing '_authorizer' suffix if present
+                authorizer_key = scheme_name.replace('_authorizer', '')
+
                 # Check if there's a custom authorizer configuration for this scheme
                 custom_authorizer = None
                 if config and config.api and config.api.lambda_authorizers:
-                    custom_authorizer = config.api.lambda_authorizers.get(scheme_name)
+                    custom_authorizer = config.api.lambda_authorizers.get(authorizer_key)
 
-                # Replace authorizerUri placeholder
+                # Replace authorizerUri
                 if 'authorizerUri' in authorizer:
-                    uri_placeholder = authorizer['authorizerUri']
-
-                    # Check if this placeholder matches any custom authorizer
-                    if custom_authorizer and uri_placeholder == custom_authorizer.lambda_placeholder:
-                        # Extract lambda name from placeholder or use scheme_name
-                        # Convert scheme_name to kebab-case for lambda function name
-                        lambda_name = scheme_name.replace('_', '-').lower()
+                    if custom_authorizer:
+                        # Use the lambda_name from configuration
+                        lambda_name = custom_authorizer.lambda_name
                         authorizer['authorizerUri'] = f'arn:aws:apigateway:{aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:{aws_region}:{aws_account}:function:{environment}-{app_name}-{lambda_name}/invocations'
-                    elif uri_placeholder == 'AUTHORIZER_URI_PLACEHOLDER':
-                        # Default behavior
+                    else:
+                        # Default behavior for non-configured authorizers
                         authorizer['authorizerUri'] = f'arn:aws:apigateway:{aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:{aws_region}:{aws_account}:function:{environment}-{app_name}-authorizer/invocations'
 
-                # Replace authorizerCredentials placeholder
+                # Replace authorizerCredentials
                 if 'authorizerCredentials' in authorizer:
-                    creds_placeholder = authorizer['authorizerCredentials']
-
-                    # Check if this placeholder matches any custom authorizer
-                    if custom_authorizer and creds_placeholder == custom_authorizer.role_placeholder:
-                        # Convert scheme_name to kebab-case for role name
-                        role_name = scheme_name.replace('_', '-').lower()
-                        authorizer['authorizerCredentials'] = f'arn:aws:iam::{aws_account}:role/{environment}-{app_name}-{role_name}-role'
-                    elif creds_placeholder == 'AUTHORIZER_ROLE_PLACEHOLDER':
-                        # Default behavior
+                    if custom_authorizer:
+                        # Use the role_name from configuration
+                        role_name = custom_authorizer.role_name
+                        authorizer['authorizerCredentials'] = f'arn:aws:iam::{aws_account}:role/{environment}-{app_name}-{role_name}'
+                    else:
+                        # Default behavior for non-configured authorizers
                         authorizer['authorizerCredentials'] = f'arn:aws:iam::{aws_account}:role/{environment}-{app_name}-authorizer-role'
 
     with open(output_file, "w+", encoding="utf-8") as f:
