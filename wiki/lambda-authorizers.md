@@ -4,6 +4,8 @@
 
 A partir de la versión actual, spa-cli permite configurar custom authorizers de Lambda a través del archivo `spa_project.toml`. Esta funcionalidad permite especificar múltiples authorizers personalizados con sus propios roles y funciones Lambda.
 
+> **Nota Importante**: Esta documentación usa la especificación **Swagger 2.0** (no OpenAPI 3.0). Los ejemplos utilizan `securityDefinitions` en lugar de `components.securitySchemes`. El sistema soporta ambos formatos para retrocompatibilidad, pero se recomienda usar Swagger 2.0 para nuevos proyectos.
+
 ## Configuración en spa_project.toml
 
 ### Estructura de Configuración
@@ -66,46 +68,51 @@ lambda_name = "admin-auth"
 
 #### 2. Configuración en api.yaml
 
-En tu archivo `api.yaml`, define los security schemes. Nota que el nombre del security scheme debe terminar con `_authorizer` y el prefijo debe coincidir con la clave en el archivo de configuración:
+En tu archivo `api.yaml`, define los security definitions usando la especificación Swagger 2.0. Nota que el nombre del security scheme debe terminar con `_authorizer` y el prefijo debe coincidir con la clave en el archivo de configuración:
 
 ```yaml
-openapi: 3.0.0
+swagger: "2.0"
 info:
   title: My API
   version: 1.0.0
+host: api.example.com
+basePath: /v1
+schemes:
+  - https
 
-components:
-  securitySchemes:
-    # El nombre 'custom1_authorizer' se mapea a la clave 'custom1' en spa_project.toml
-    custom1_authorizer:
-      type: apiKey
-      name: Authorization
-      in: header
-      x-amazon-apigateway-authtype: oauth2
-      x-amazon-apigateway-authorizer:
-        type: token
-        authorizerUri: LAMBDA_ARN_PLACEHOLDER
-        authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
-        identitySource: method.request.header.Authorization
-        authorizerResultTtlInSeconds: 60
+securityDefinitions:
+  # El nombre 'custom1_authorizer' se mapea a la clave 'custom1' en spa_project.toml
+  custom1_authorizer:
+    type: apiKey
+    name: Authorization
+    in: header
+    x-amazon-apigateway-authtype: oauth2
+    x-amazon-apigateway-authorizer:
+      type: token
+      authorizerUri: LAMBDA_ARN_PLACEHOLDER
+      authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
+      identitySource: method.request.header.Authorization
+      authorizerResultTtlInSeconds: 60
 
-    # El nombre 'admin_authorizer' se mapea a la clave 'admin' en spa_project.toml
-    admin_authorizer:
-      type: apiKey
-      name: X-Admin-Token
-      in: header
-      x-amazon-apigateway-authtype: custom
-      x-amazon-apigateway-authorizer:
-        type: request
-        authorizerUri: LAMBDA_ARN_PLACEHOLDER
-        authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
-        identitySource: method.request.header.X-Admin-Token
-        authorizerResultTtlInSeconds: 300
+  # El nombre 'admin_authorizer' se mapea a la clave 'admin' en spa_project.toml
+  admin_authorizer:
+    type: apiKey
+    name: X-Admin-Token
+    in: header
+    x-amazon-apigateway-authtype: custom
+    x-amazon-apigateway-authorizer:
+      type: request
+      authorizerUri: LAMBDA_ARN_PLACEHOLDER
+      authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
+      identitySource: method.request.header.X-Admin-Token
+      authorizerResultTtlInSeconds: 300
 
 paths:
   /users:
     get:
       summary: Get users
+      produces:
+        - application/json
       security:
         - custom1_authorizer: []
       x-amazon-apigateway-integration:
@@ -117,6 +124,10 @@ paths:
   /admin/settings:
     post:
       summary: Update admin settings
+      consumes:
+        - application/json
+      produces:
+        - application/json
       security:
         - admin_authorizer: []
       x-amazon-apigateway-integration:
@@ -158,24 +169,23 @@ Los ARNs generados serán:
 
 ### Resultado JSON del Build
 
-El archivo generado contendrá:
+El archivo generado (en formato Swagger 2.0) contendrá:
 
 ```json
 {
-  "components": {
-    "securitySchemes": {
-      "custom1_authorizer": {
-        "type": "apiKey",
-        "name": "Authorization",
-        "in": "header",
-        "x-amazon-apigateway-authtype": "oauth2",
-        "x-amazon-apigateway-authorizer": {
-          "type": "token",
-          "authorizerUri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:prod-my-api-custom-auth/invocations",
-          "authorizerCredentials": "arn:aws:iam::123456789012:role/prod-my-api-custom-auth-role",
-          "identitySource": "method.request.header.Authorization",
-          "authorizerResultTtlInSeconds": 60
-        }
+  "swagger": "2.0",
+  "securityDefinitions": {
+    "custom1_authorizer": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "x-amazon-apigateway-authtype": "oauth2",
+      "x-amazon-apigateway-authorizer": {
+        "type": "token",
+        "authorizerUri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:prod-my-api-custom-auth/invocations",
+        "authorizerCredentials": "arn:aws:iam::123456789012:role/prod-my-api-custom-auth-role",
+        "identitySource": "method.request.header.Authorization",
+        "authorizerResultTtlInSeconds": 60
       }
     }
   }
@@ -233,38 +243,38 @@ lambda_name = "superadmin-auth"
 ```
 
 ```yaml
-# En api.yaml
-components:
-  securitySchemes:
-    user_authorizer:
-      type: apiKey
-      name: Authorization
-      in: header
-      x-amazon-apigateway-authorizer:
-        type: token
-        authorizerUri: LAMBDA_ARN_PLACEHOLDER
-        authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
-        identitySource: method.request.header.Authorization
+# En api.yaml (Swagger 2.0)
+swagger: "2.0"
+securityDefinitions:
+  user_authorizer:
+    type: apiKey
+    name: Authorization
+    in: header
+    x-amazon-apigateway-authorizer:
+      type: token
+      authorizerUri: LAMBDA_ARN_PLACEHOLDER
+      authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
+      identitySource: method.request.header.Authorization
 
-    admin_authorizer:
-      type: apiKey
-      name: Authorization
-      in: header
-      x-amazon-apigateway-authorizer:
-        type: token
-        authorizerUri: LAMBDA_ARN_PLACEHOLDER
-        authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
-        identitySource: method.request.header.Authorization
+  admin_authorizer:
+    type: apiKey
+    name: Authorization
+    in: header
+    x-amazon-apigateway-authorizer:
+      type: token
+      authorizerUri: LAMBDA_ARN_PLACEHOLDER
+      authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
+      identitySource: method.request.header.Authorization
 
-    superadmin_authorizer:
-      type: apiKey
-      name: Authorization
-      in: header
-      x-amazon-apigateway-authorizer:
-        type: token
-        authorizerUri: LAMBDA_ARN_PLACEHOLDER
-        authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
-        identitySource: method.request.header.Authorization
+  superadmin_authorizer:
+    type: apiKey
+    name: Authorization
+    in: header
+    x-amazon-apigateway-authorizer:
+      type: token
+      authorizerUri: LAMBDA_ARN_PLACEHOLDER
+      authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
+      identitySource: method.request.header.Authorization
 ```
 
 ### 2. Autorización por Tipo de Cliente
@@ -285,17 +295,17 @@ lambda_name = "apikey-auth"
 ```
 
 ```yaml
-# En api.yaml
-components:
-  securitySchemes:
-    mobile_authorizer:
-      # ... configuración
+# En api.yaml (Swagger 2.0)
+swagger: "2.0"
+securityDefinitions:
+  mobile_authorizer:
+    # ... configuración
 
-    web_authorizer:
-      # ... configuración
+  web_authorizer:
+    # ... configuración
 
-    apikey_authorizer:
-      # ... configuración
+  apikey_authorizer:
+    # ... configuración
 ```
 
 ## Mejores Prácticas
@@ -349,12 +359,12 @@ lambda_name = "my-lambda"
 ```
 
 ```yaml
-# api.yaml
-components:
-  securitySchemes:
-    custom1_authorizer:  # ← con '_authorizer'
-      x-amazon-apigateway-authorizer:
-        # ...
+# api.yaml (Swagger 2.0)
+swagger: "2.0"
+securityDefinitions:
+  custom1_authorizer:  # ← con '_authorizer'
+    x-amazon-apigateway-authorizer:
+      # ...
 ```
 
 ### ARNs incorrectos generados
