@@ -5,25 +5,21 @@
     "description": "API para pruebas",
     "version": "1.0.0"
   },
-  "servers": [
-    {
-      "url": "https://sandbox.example.com",
-      "description": "Sandbox / QA"
-    }
-  ],
+  "host": "sandbox.example.com",
+  "basePath": "/",
+  "schemes": ["https"],
   "paths": {
     "/": {
       "get": {
         "summary": "Eco para testeo del api",
+        "produces": [
+          "application/json"
+        ],
         "responses": {
           "200": {
             "description": "200 response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Empty"
-                }
-              }
+            "schema": {
+              "$ref": "#/definitions/Empty"
             }
           }
         },
@@ -160,19 +156,17 @@
     },
     "name": "hello_world"
   },
-  "components": {
-    "schemas": {
-      "Empty": {
-        "type": "object",
-        "title": "Empty Schema"
-      }
-    },
-    "securitySchemes": {
-      "api_key": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "x-api-key"
-      }
+  "definitions": {
+    "Empty": {
+      "type": "object",
+      "title": "Empty Schema"
+    }
+  },
+  "securityDefinitions": {
+    "api_key": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "x-api-key"
     }
   }
 }

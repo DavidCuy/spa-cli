@@ -134,9 +134,16 @@ def build_api(api_path: Path, lambdas_path: Path, output_file: Path):
     for ep in endpoint_list:
         cast(dict, api_definition['paths']).update(ep)
 
-    # Replace authorizer placeholders in securitySchemes
-    if 'components' in api_definition and 'securitySchemes' in api_definition['components']:
-        for scheme_name, scheme_config in api_definition['components']['securitySchemes'].items():
+    # Replace authorizer placeholders in securityDefinitions (Swagger 2.0)
+    # Support both 'securityDefinitions' (Swagger 2.0) and 'components.securitySchemes' (OpenAPI 3.0) for compatibility
+    security_schemes = None
+    if 'securityDefinitions' in api_definition:
+        security_schemes = api_definition['securityDefinitions']
+    elif 'components' in api_definition and 'securitySchemes' in api_definition['components']:
+        security_schemes = api_definition['components']['securitySchemes']
+
+    if security_schemes:
+        for scheme_name, scheme_config in security_schemes.items():
             if 'x-amazon-apigateway-authorizer' in scheme_config:
                 authorizer = scheme_config['x-amazon-apigateway-authorizer']
 

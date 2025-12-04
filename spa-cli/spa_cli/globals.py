@@ -154,7 +154,8 @@ class Api(BaseConf):
     @staticmethod
     def from_dict(obj: Any) -> 'Api':
         assert isinstance(obj, dict)
-        lambda_authorizers_raw = obj.get("lambda_authorizers", {})
+        # Support both 'lambda-authorizers' (from TOML) and 'lambda_authorizers' (legacy)
+        lambda_authorizers_raw = obj.get("lambda-authorizers", obj.get("lambda_authorizers", {}))
         lambda_authorizers = {
             key: LambdaAuthorizer.from_dict(value)
             for key, value in lambda_authorizers_raw.items()
