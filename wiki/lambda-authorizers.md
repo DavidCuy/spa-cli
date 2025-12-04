@@ -11,15 +11,16 @@ A partir de la versión actual, spa-cli permite configurar custom authorizers de
 Para configurar custom authorizers, agrega una sección `[spa.api.lambda-authorizers]` en tu archivo `spa_project.toml`:
 
 ```toml
-[spa.api.lambda-authorizers.NombreDelAuthorizer]
-role_placeholder = "PLACEHOLDER_DEL_ROL"
-lambda_placeholder = "PLACEHOLDER_DE_LA_LAMBDA"
+[spa.api.lambda-authorizers.nombre_clave]
+role_name = "nombre-del-rol"
+lambda_name = "nombre-de-la-lambda"
 ```
 
 ### Parámetros
 
-- **role_placeholder**: El placeholder que se usará en el archivo `api.yaml` para el rol del API Gateway que invocará la Lambda authorizer
-- **lambda_placeholder**: El placeholder que se usará en el archivo `api.yaml` para la URI de la función Lambda authorizer
+- **nombre_clave**: La clave debe coincidir con el nombre del security scheme en `api.yaml` sin el sufijo `_authorizer`. Por ejemplo, si tu security scheme se llama `custom1_authorizer`, la clave debe ser `custom1`.
+- **role_name**: El nombre del rol IAM que API Gateway usará para invocar la Lambda authorizer (sin prefijos de entorno o aplicación, solo el nombre base).
+- **lambda_name**: El nombre de la función Lambda authorizer (sin prefijos de entorno o aplicación, solo el nombre base).
 
 ### Ejemplo Completo
 
@@ -52,18 +53,20 @@ lambdas = "src/lambdas"
 layers = "src/layers"
 
 # Custom Lambda Authorizers
-[spa.api.lambda-authorizers.CustomAuth]
-role_placeholder = "CUSTOM_AUTH_ROLE_PLACEHOLDER"
-lambda_placeholder = "CUSTOM_AUTH_LAMBDA_PLACEHOLDER"
+# La clave 'custom1' coincide con 'custom1_authorizer' en api.yaml
+[spa.api.lambda-authorizers.custom1]
+role_name = "custom-auth-role"
+lambda_name = "custom-auth"
 
-[spa.api.lambda-authorizers.AdminAuth]
-role_placeholder = "ADMIN_AUTH_ROLE_PLACEHOLDER"
-lambda_placeholder = "ADMIN_AUTH_LAMBDA_PLACEHOLDER"
+# La clave 'admin' coincide con 'admin_authorizer' en api.yaml
+[spa.api.lambda-authorizers.admin]
+role_name = "admin-auth-role"
+lambda_name = "admin-auth"
 ```
 
 #### 2. Configuración en api.yaml
 
-En tu archivo `api.yaml`, define los security schemes con los placeholders correspondientes:
+En tu archivo `api.yaml`, define los security schemes. Nota que el nombre del security scheme debe terminar con `_authorizer` y el prefijo debe coincidir con la clave en el archivo de configuración:
 
 ```yaml
 openapi: 3.0.0
@@ -73,28 +76,30 @@ info:
 
 components:
   securitySchemes:
-    CustomAuth:
+    # El nombre 'custom1_authorizer' se mapea a la clave 'custom1' en spa_project.toml
+    custom1_authorizer:
       type: apiKey
       name: Authorization
       in: header
-      x-amazon-apigateway-authtype: custom
+      x-amazon-apigateway-authtype: oauth2
       x-amazon-apigateway-authorizer:
-        type: request
-        authorizerUri: CUSTOM_AUTH_LAMBDA_PLACEHOLDER
-        authorizerCredentials: CUSTOM_AUTH_ROLE_PLACEHOLDER
+        type: token
+        authorizerUri: LAMBDA_ARN_PLACEHOLDER
+        authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
         identitySource: method.request.header.Authorization
-        authorizerResultTtlInSeconds: 300
+        authorizerResultTtlInSeconds: 60
 
-    AdminAuth:
+    # El nombre 'admin_authorizer' se mapea a la clave 'admin' en spa_project.toml
+    admin_authorizer:
       type: apiKey
-      name: Authorization
+      name: X-Admin-Token
       in: header
       x-amazon-apigateway-authtype: custom
       x-amazon-apigateway-authorizer:
         type: request
-        authorizerUri: ADMIN_AUTH_LAMBDA_PLACEHOLDER
-        authorizerCredentials: ADMIN_AUTH_ROLE_PLACEHOLDER
-        identitySource: method.request.header.Authorization
+        authorizerUri: LAMBDA_ARN_PLACEHOLDER
+        authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
+        identitySource: method.request.header.X-Admin-Token
         authorizerResultTtlInSeconds: 300
 
 paths:
@@ -102,7 +107,7 @@ paths:
     get:
       summary: Get users
       security:
-        - CustomAuth: []
+        - custom1_authorizer: []
       x-amazon-apigateway-integration:
         uri: LAMBDA_URI_PLACEHOLDER
         credentials: API_ROLE_PLACEHOLDER
@@ -113,7 +118,7 @@ paths:
     post:
       summary: Update admin settings
       security:
-        - AdminAuth: []
+        - admin_authorizer: []
       x-amazon-apigateway-integration:
         uri: LAMBDA_URI_PLACEHOLDER
         credentials: API_ROLE_PLACEHOLDER
@@ -126,11 +131,12 @@ paths:
 Cuando ejecutas `spa project build`, el sistema:
 
 1. **Lee la configuración** de `spa_project.toml`
-2. **Identifica los security schemes** en `api.yaml`
-3. **Busca coincidencias** entre el nombre del security scheme y las configuraciones en `[spa.api.lambda-authorizers]`
-4. **Reemplaza los placeholders** con los ARNs reales basándose en:
+2. **Identifica los security schemes** en `api.yaml` que contienen `x-amazon-apigateway-authorizer`
+3. **Extrae la clave** removiendo el sufijo `_authorizer` del nombre del security scheme
+4. **Busca la configuración** correspondiente en `[spa.api.lambda-authorizers.clave]`
+5. **Reemplaza los ARNs** usando:
    - Variables de entorno (ENVIRONMENT, APP_NAME, AWS_ACCOUNT_ID, AWS_REGION)
-   - El nombre del security scheme (convertido a kebab-case)
+   - Los valores `lambda_name` y `role_name` de la configuración
 
 ### ARNs Generados
 
@@ -140,35 +146,70 @@ Para el ejemplo anterior, con las siguientes variables de entorno:
 - AWS_ACCOUNT_ID=123456789012
 - AWS_REGION=us-east-1
 
-Los placeholders se reemplazarán por:
+Los ARNs generados serán:
 
-**CustomAuth:**
-- `authorizerUri`: `arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:prod-my-api-customauth/invocations`
-- `authorizerCredentials`: `arn:aws:iam::123456789012:role/prod-my-api-customauth-role`
+**custom1_authorizer:**
+- `authorizerUri`: `arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:prod-my-api-custom-auth/invocations`
+- `authorizerCredentials`: `arn:aws:iam::123456789012:role/prod-my-api-custom-auth-role`
 
-**AdminAuth:**
-- `authorizerUri`: `arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:prod-my-api-adminauth/invocations`
-- `authorizerCredentials`: `arn:aws:iam::123456789012:role/prod-my-api-adminauth-role`
+**admin_authorizer:**
+- `authorizerUri`: `arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:prod-my-api-admin-auth/invocations`
+- `authorizerCredentials`: `arn:aws:iam::123456789012:role/prod-my-api-admin-auth-role`
+
+### Resultado JSON del Build
+
+El archivo generado contendrá:
+
+```json
+{
+  "components": {
+    "securitySchemes": {
+      "custom1_authorizer": {
+        "type": "apiKey",
+        "name": "Authorization",
+        "in": "header",
+        "x-amazon-apigateway-authtype": "oauth2",
+        "x-amazon-apigateway-authorizer": {
+          "type": "token",
+          "authorizerUri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:prod-my-api-custom-auth/invocations",
+          "authorizerCredentials": "arn:aws:iam::123456789012:role/prod-my-api-custom-auth-role",
+          "identitySource": "method.request.header.Authorization",
+          "authorizerResultTtlInSeconds": 60
+        }
+      }
+    }
+  }
+}
+```
 
 ## Comportamiento por Defecto
 
-Si no configuras custom authorizers en `spa_project.toml`, el sistema mantiene el comportamiento por defecto:
+Si un security scheme no tiene una configuración correspondiente en `spa_project.toml`, el sistema usa el comportamiento por defecto:
 
-- Placeholders `AUTHORIZER_URI_PLACEHOLDER` se reemplazan con:
+- `authorizerUri` se reemplaza con:
   `arn:aws:apigateway:{region}:lambda:path/2015-03-31/functions/arn:aws:lambda:{region}:{account}:function:{env}-{app}-authorizer/invocations`
 
-- Placeholders `AUTHORIZER_ROLE_PLACEHOLDER` se reemplazan con:
+- `authorizerCredentials` se reemplaza con:
   `arn:aws:iam::{account}:role/{env}-{app}-authorizer-role`
 
 ## Convenciones de Nombres
 
-El sistema convierte automáticamente el nombre del security scheme a kebab-case para los nombres de recursos:
+### Mapeo de Claves
 
-- `CustomAuth` → `customauth`
-- `AdminAuth` → `adminauth`
-- `My_Custom_Authorizer` → `my-custom-authorizer`
+El sistema extrae la clave del authorizer removiendo el sufijo `_authorizer` del nombre del security scheme:
 
-Esto asegura consistencia con las convenciones de nombres de AWS Lambda y IAM roles.
+- `custom1_authorizer` → clave: `custom1`
+- `admin_authorizer` → clave: `admin`
+- `my_custom_authorizer` → clave: `my_custom`
+
+### Nombres de Recursos AWS
+
+Los nombres finales de los recursos AWS se construyen con el formato:
+
+- **Lambda**: `{ENVIRONMENT}-{APP_NAME}-{lambda_name}`
+- **IAM Role**: `{ENVIRONMENT}-{APP_NAME}-{role_name}`
+
+Donde `lambda_name` y `role_name` son los valores especificados en `spa_project.toml`.
 
 ## Casos de Uso
 
@@ -177,42 +218,111 @@ Esto asegura consistencia con las convenciones de nombres de AWS Lambda y IAM ro
 Configura diferentes authorizers para diferentes niveles de acceso:
 
 ```toml
-[spa.api.lambda-authorizers.UserAuth]
-role_placeholder = "USER_AUTH_ROLE"
-lambda_placeholder = "USER_AUTH_LAMBDA"
+# En spa_project.toml
+[spa.api.lambda-authorizers.user]
+role_name = "user-auth-role"
+lambda_name = "user-auth"
 
-[spa.api.lambda-authorizers.AdminAuth]
-role_placeholder = "ADMIN_AUTH_ROLE"
-lambda_placeholder = "ADMIN_AUTH_LAMBDA"
+[spa.api.lambda-authorizers.admin]
+role_name = "admin-auth-role"
+lambda_name = "admin-auth"
 
-[spa.api.lambda-authorizers.SuperAdminAuth]
-role_placeholder = "SUPER_ADMIN_AUTH_ROLE"
-lambda_placeholder = "SUPER_ADMIN_AUTH_LAMBDA"
+[spa.api.lambda-authorizers.superadmin]
+role_name = "superadmin-auth-role"
+lambda_name = "superadmin-auth"
+```
+
+```yaml
+# En api.yaml
+components:
+  securitySchemes:
+    user_authorizer:
+      type: apiKey
+      name: Authorization
+      in: header
+      x-amazon-apigateway-authorizer:
+        type: token
+        authorizerUri: LAMBDA_ARN_PLACEHOLDER
+        authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
+        identitySource: method.request.header.Authorization
+
+    admin_authorizer:
+      type: apiKey
+      name: Authorization
+      in: header
+      x-amazon-apigateway-authorizer:
+        type: token
+        authorizerUri: LAMBDA_ARN_PLACEHOLDER
+        authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
+        identitySource: method.request.header.Authorization
+
+    superadmin_authorizer:
+      type: apiKey
+      name: Authorization
+      in: header
+      x-amazon-apigateway-authorizer:
+        type: token
+        authorizerUri: LAMBDA_ARN_PLACEHOLDER
+        authorizerCredentials: APIG_ROLE_ARN_PLACEHOLDER
+        identitySource: method.request.header.Authorization
 ```
 
 ### 2. Autorización por Tipo de Cliente
 
 ```toml
-[spa.api.lambda-authorizers.MobileAuth]
-role_placeholder = "MOBILE_AUTH_ROLE"
-lambda_placeholder = "MOBILE_AUTH_LAMBDA"
+# En spa_project.toml
+[spa.api.lambda-authorizers.mobile]
+role_name = "mobile-auth-role"
+lambda_name = "mobile-auth"
 
-[spa.api.lambda-authorizers.WebAuth]
-role_placeholder = "WEB_AUTH_ROLE"
-lambda_placeholder = "WEB_AUTH_LAMBDA"
+[spa.api.lambda-authorizers.web]
+role_name = "web-auth-role"
+lambda_name = "web-auth"
 
-[spa.api.lambda-authorizers.ApiKeyAuth]
-role_placeholder = "API_KEY_AUTH_ROLE"
-lambda_placeholder = "API_KEY_AUTH_LAMBDA"
+[spa.api.lambda-authorizers.apikey]
+role_name = "apikey-auth-role"
+lambda_name = "apikey-auth"
+```
+
+```yaml
+# En api.yaml
+components:
+  securitySchemes:
+    mobile_authorizer:
+      # ... configuración
+
+    web_authorizer:
+      # ... configuración
+
+    apikey_authorizer:
+      # ... configuración
 ```
 
 ## Mejores Prácticas
 
-1. **Nombres Descriptivos**: Usa nombres claros para tus authorizers que reflejen su propósito
-2. **Consistencia en Placeholders**: Mantén un patrón consistente en tus placeholders (ej: `{NOMBRE}_ROLE_PLACEHOLDER`)
-3. **Documentación**: Documenta qué authorizer se debe usar para cada tipo de endpoint
-4. **Testing**: Prueba cada authorizer después de configurarlo
-5. **Variables de Entorno**: Asegúrate de tener configuradas todas las variables de entorno necesarias antes de ejecutar `spa project build`
+1. **Convención de Nombres**:
+   - Usa nombres descriptivos en kebab-case para `lambda_name` y `role_name`
+   - El nombre del security scheme en `api.yaml` debe terminar con `_authorizer`
+   - La clave en `spa_project.toml` debe ser el prefijo antes de `_authorizer`
+
+2. **Consistencia**:
+   - Mantén un patrón consistente en la nomenclatura de tus authorizers
+   - Ejemplo: Si tienes `custom1_authorizer` en api.yaml, usa `custom1` como clave en spa_project.toml
+
+3. **Documentación**:
+   - Documenta qué authorizer se debe usar para cada tipo de endpoint
+   - Incluye comentarios en tu configuración explicando el propósito de cada authorizer
+
+4. **Testing**:
+   - Prueba cada authorizer después de configurarlo
+   - Verifica que los ARNs generados sean correctos
+
+5. **Variables de Entorno**:
+   - Asegúrate de tener configuradas todas las variables de entorno necesarias antes de ejecutar `spa project build`:
+     - ENVIRONMENT
+     - APP_NAME
+     - AWS_ACCOUNT_ID
+     - AWS_REGION
 
 ## Troubleshooting
 
@@ -222,11 +332,30 @@ lambda_placeholder = "API_KEY_AUTH_LAMBDA"
 
 **Solución**: Verifica que el archivo existe y tiene el formato TOML correcto.
 
-### Los placeholders no se reemplazan
+### Los ARNs no se generan correctamente
 
-**Causa**: El nombre del security scheme en `api.yaml` no coincide con ninguna configuración en `[spa.api.lambda-authorizers]`.
+**Causa**: La clave en `spa_project.toml` no coincide con el prefijo del security scheme en `api.yaml`.
 
-**Solución**: Verifica que los nombres coincidan exactamente (case-sensitive).
+**Solución**:
+- Si tu security scheme se llama `custom1_authorizer`, la clave en el archivo de configuración debe ser `custom1`
+- Verifica que hayas removido el sufijo `_authorizer` de la clave
+
+**Ejemplo correcto**:
+```toml
+# spa_project.toml
+[spa.api.lambda-authorizers.custom1]  # ← sin '_authorizer'
+role_name = "my-role"
+lambda_name = "my-lambda"
+```
+
+```yaml
+# api.yaml
+components:
+  securitySchemes:
+    custom1_authorizer:  # ← con '_authorizer'
+      x-amazon-apigateway-authorizer:
+        # ...
+```
 
 ### ARNs incorrectos generados
 
@@ -238,13 +367,49 @@ lambda_placeholder = "API_KEY_AUTH_LAMBDA"
 - AWS_ACCOUNT_ID
 - AWS_REGION
 
+### Error: AttributeError en lambda_name o role_name
+
+**Causa**: La configuración usa los campos antiguos `role_placeholder` y `lambda_placeholder`.
+
+**Solución**: Actualiza tu configuración para usar los nuevos campos:
+- Cambiar `role_placeholder` → `role_name`
+- Cambiar `lambda_placeholder` → `lambda_name`
+
 ## Migración desde Versiones Anteriores
 
-Si estás actualizando desde una versión anterior que usaba el comportamiento por defecto:
+Si estás actualizando desde una versión anterior:
 
-1. El comportamiento por defecto sigue funcionando si no agregas la sección `[spa.api.lambda-authorizers]`
-2. Para migrar a custom authorizers, simplemente agrega la configuración en `spa_project.toml`
-3. Actualiza tus placeholders en `api.yaml` para que coincidan con los nuevos placeholders configurados
+### Cambio de Campos en la Configuración
+
+**Antes (versión antigua)**:
+```toml
+[spa.api.lambda-authorizers.CustomAuth]
+role_placeholder = "CUSTOM_AUTH_ROLE_PLACEHOLDER"
+lambda_placeholder = "CUSTOM_AUTH_LAMBDA_PLACEHOLDER"
+```
+
+**Ahora (versión actual)**:
+```toml
+[spa.api.lambda-authorizers.custom]
+role_name = "custom-auth-role"
+lambda_name = "custom-auth"
+```
+
+### Cambio en el Mapeo
+
+- **Antes**: El nombre completo del security scheme (ej. `CustomAuth`) se usaba como clave
+- **Ahora**: Se usa el prefijo sin el sufijo `_authorizer` (ej. `custom` para `custom_authorizer`)
+
+### Pasos de Migración
+
+1. Actualiza tu archivo `spa_project.toml`:
+   - Cambia `role_placeholder` a `role_name` con el nombre real del rol
+   - Cambia `lambda_placeholder` a `lambda_name` con el nombre real de la lambda
+   - Ajusta las claves para que coincidan con el prefijo del security scheme
+
+2. Asegúrate de que tus security schemes en `api.yaml` terminen con `_authorizer`
+
+3. Los valores en `authorizerUri` y `authorizerCredentials` pueden ser cualquier placeholder - el sistema los reemplazará automáticamente si existe la configuración correspondiente
 
 ## Referencias
 
