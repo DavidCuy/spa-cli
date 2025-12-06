@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: spa-cli
-Version: 1.0.10
+Version: 1.0.11
 Summary: Un cli para manejar proyectos serverless en AWS
 Author: David Cuy
 Author-email: david.cuy.sanchez@gmail.com

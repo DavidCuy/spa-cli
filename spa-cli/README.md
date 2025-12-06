@@ -50,16 +50,83 @@ spa project install
 
 Ejecuta un servidor local para desarrollo y pruebas de la API.
 
-**Descripción:** Inicia un servidor HTTP local que simula el comportamiento de las funciones Lambda, permitiendo desarrollo y pruebas sin necesidad de desplegar en AWS.
+**Descripción:** Inicia un servidor HTTP local que simula el comportamiento de las funciones Lambda, permitiendo desarrollo y pruebas sin necesidad de desplegar en AWS. El servidor utiliza FastAPI y Uvicorn con soporte completo para auto-reload durante el desarrollo.
 
 ```bash
 spa project run-api
 ```
 
+**Opciones disponibles:**
+
+- `--host TEXT` - Host para el servidor (default: 127.0.0.1)
+- `--port INTEGER` - Puerto para el servidor (default: 8000)
+- `--reload / --no-reload` - Habilitar auto-reload en cambios de código (default: habilitado)
+- `--log-level TEXT` - Nivel de log: critical, error, warning, info, debug, trace (default: info)
+- `--root-path TEXT` - Path raíz para la aplicación
+- `--proxy-headers / --no-proxy-headers` - Habilitar headers de proxy (X-Forwarded-For, etc.)
+
+**Ejemplos de uso:**
+
+```bash
+# Servidor básico en puerto por defecto
+spa project run-api
+
+# Servidor en host y puerto específicos
+spa project run-api --host 0.0.0.0 --port 8080
+
+# Servidor con auto-reload y logs detallados
+spa project run-api --reload --log-level debug
+
+# Servidor sin auto-reload para producción local
+spa project run-api --host 0.0.0.0 --port 9000 --no-reload
+
+# Servidor con configuración de proxy
+spa project run-api --proxy-headers --root-path /api
+```
+
 **Ejemplo de salida:**
 ```
 Iniciando servidor local
-Servidor ejecutándose en http://localhost:8000
+Generando definición OpenAPI…
+
+INFO:     Will watch for changes in these directories: ['/ruta/proyecto']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [12345] using WatchFiles
+INFO:     Started server process [12346]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+```
+
+**Endpoint raíz:**
+
+Al acceder a `http://localhost:8000/` obtendrás información de configuración del servidor:
+
+```json
+{
+  "Message": "Api deployed",
+  "Configuration": {
+    "environment": "v1",
+    "server": {
+      "host": "127.0.0.1",
+      "port": "8000",
+      "reload": true,
+      "log_level": "info",
+      "root_path": "",
+      "proxy_headers": false
+    },
+    "request": {
+      "client_host": "127.0.0.1",
+      "base_url": "http://localhost:8000/",
+      "url": "http://localhost:8000/"
+    },
+    "api": {
+      "prefix": "/v1",
+      "openapi_url": "/openapi.json",
+      "docs_url": "/docs",
+      "redoc_url": "/redoc"
+    }
+  }
+}
 ```
 
 #### `spa project build`
@@ -225,7 +292,7 @@ spa endpoint add --method POST --path /usuarios --endpoint-name crear_usuario
 spa lambda add --lambda-name procesar_imagenes
 
 # 5. Desarrollar y probar localmente
-spa project run-api
+spa project run-api --reload --log-level debug
 
 # 6. Construir para deployment
 spa project build
@@ -237,11 +304,12 @@ spa project build
 - ✅ **Plantillas preconfiguradas** para proyectos serverless
 - ✅ **Soporte para bases de datos** MySQL y PostgreSQL
 - ✅ **Configuración automática** de AWS Lambda layers
-- ✅ **Servidor local** para desarrollo y pruebas
+- ✅ **Servidor local FastAPI** con auto-reload para desarrollo y pruebas
 - ✅ **Integración con AWS** SAM/CDK/Pulumi
-- ✅ **Generación automática** de documentación API
+- ✅ **Generación automática** de documentación API (OpenAPI/Swagger)
 - ✅ **Tests unitarios** incluidos
 - ✅ **Configuración de infraestructura** as a code
+- ✅ **Servidor configurable** con opciones de host, puerto, logging y más
 
 ## Requisitos del Sistema
 

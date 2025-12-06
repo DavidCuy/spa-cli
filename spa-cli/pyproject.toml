@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "spa-cli"
-version = "1.0.10"
+version = "1.0.11"
 description = "Un cli para manejar proyectos serverless en aws con python"
 authors = ["David Cuy <david.cuy.sanchez@gmail.com>"]
 readme = "README.md"
@@ -22,7 +22,10 @@ cookiecutter = "^2.6.0"
 setuptools = "^80.9.0"
 pydantic = "^2.11.9"
 typer = "^0.19.1"
+fastapi = {extras = ["standard"], version = "^0.116.1"}
 tqdm = "^4.67.1"
+mangum = "^0.19.0"
+uvicorn = "^0.35.0"
 
 
 [build-system]

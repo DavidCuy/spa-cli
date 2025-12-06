@@ -81,16 +81,64 @@ def install_project():
         raise typer.Abort()
     install_layers(project_config)
 
-@app.command('run-api')
-def run_app():
+@app.command('run-api', context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def run_app(
+    ctx: typer.Context,
+    host: str = typer.Option(None, "--host", help="Host para el servidor (default: 127.0.0.1)"),
+    port: int = typer.Option(None, "--port", help="Puerto para el servidor (default: 8000)"),
+    reload: bool = typer.Option(None, "--reload/--no-reload", help="Habilitar auto-reload en cambios de código"),
+    log_level: str = typer.Option(None, "--log-level", help="Nivel de log (critical, error, warning, info, debug, trace)")
+):
+    """
+    Inicia el servidor de desarrollo local con FastAPI.
+
+    Argumentos adicionales de fastapi dev que puedes usar:
+
+    --host TEXT                Host para el servidor (default: 127.0.0.1)
+
+    --port INTEGER            Puerto para el servidor (default: 8000)
+
+    --reload / --no-reload    Habilitar auto-reload (default: habilitado)
+
+    --log-level TEXT          Nivel de log: critical, error, warning, info, debug, trace
+
+    --root-path TEXT          Path raíz para la aplicación
+
+    --proxy-headers / --no-proxy-headers
+                              Habilitar headers de proxy (X-Forwarded-For, etc.)
+
+    Ejemplos:
+
+      spa project run-api --host 0.0.0.0 --port 8080
+
+      spa project run-api --reload --log-level debug
+
+      spa project run-api --host 0.0.0.0 --port 9000 --no-reload
+    """
     try:
         project_config = load_config()
     except:
         typer.echo('No se puedo leer la configuracion del proyecto', color=typer.colors.RED)
         raise typer.Abort()
-    
+
     typer.echo('Iniciando servidor local')
-    up_local_server(project_config)
+
+    # Construir argumentos adicionales a partir de los parámetros especificados
+    extra_args = []
+    if host is not None:
+        extra_args.extend(["--host", host])
+    if port is not None:
+        extra_args.extend(["--port", str(port)])
+    if reload is not None:
+        extra_args.append("--reload" if reload else "--no-reload")
+    if log_level is not None:
+        extra_args.extend(["--log-level", log_level])
+
+    # Agregar cualquier argumento extra no reconocido
+    extra_args.extend(ctx.args)
+
+    # Pasar los argumentos adicionales a up_local_server
+    up_local_server(project_config, extra_args=extra_args if extra_args else None)
     
 
 @app.command('build')

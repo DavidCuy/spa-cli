@@ -40,6 +40,21 @@ spa project run-api      # Ejecutar servidor local
 spa project build        # Construir para deployment
 ```
 
+#### Opciones del servidor local (`run-api`)
+```bash
+spa project run-api --host 0.0.0.0 --port 8080
+spa project run-api --reload --log-level debug
+spa project run-api --host 0.0.0.0 --port 9000 --no-reload
+```
+
+**Opciones disponibles:**
+- `--host TEXT` - Host para el servidor (default: 127.0.0.1)
+- `--port INTEGER` - Puerto para el servidor (default: 8000)
+- `--reload / --no-reload` - Habilitar auto-reload en cambios de código
+- `--log-level TEXT` - Nivel de log: critical, error, warning, info, debug, trace
+- `--root-path TEXT` - Path raíz para la aplicación
+- `--proxy-headers / --no-proxy-headers` - Habilitar headers de proxy
+
 ### Gestión de Endpoints
 ```bash
 spa endpoint add --method POST --path /usuarios --endpoint-name crear_usuario
@@ -63,7 +78,7 @@ spa project install
 spa endpoint add --method GET --path /usuarios --endpoint-name listar_usuarios
 
 # 4. Desarrollar y probar localmente
-spa project run-api
+spa project run-api --reload --log-level debug
 
 # 5. Construir para deployment
 spa project build
