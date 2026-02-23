@@ -132,7 +132,11 @@ def build_api(api_path: Path, lambdas_path: Path, output_file: Path):
     )
 
     for ep in endpoint_list:
-        cast(dict, api_definition['paths']).update(ep)
+        for path_key, methods in ep.items():
+            if path_key in api_definition['paths']:
+                api_definition['paths'][path_key].update(methods)
+            else:
+                api_definition['paths'][path_key] = methods
 
     # Replace authorizer placeholders in securityDefinitions (Swagger 2.0)
     # Support both 'securityDefinitions' (Swagger 2.0) and 'components.securitySchemes' (OpenAPI 3.0) for compatibility
