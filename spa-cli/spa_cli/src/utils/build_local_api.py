@@ -75,7 +75,16 @@ async def build_event_from_request(request: Request) -> Dict[str, Any]:
     headers = dict(request.headers)
     cookies = request.cookies
 
-    query_params = dict(request.query_params)
+    # Handle multiple query params with the same key
+    query_params: Dict[str, str] = {{}}
+    multi_value_query_params: Dict[str, List[str]] = {{}}
+    
+    for key in request.query_params.keys():
+        values = request.query_params.getlist(key)
+        if len(values) == 1:
+            query_params[key] = values[0]
+        else:
+            multi_value_query_params[key] = values
 
     return {{
         "version": "2.0",
@@ -85,6 +94,7 @@ async def build_event_from_request(request: Request) -> Dict[str, Any]:
         "cookies": list(cookies.values()) if cookies else [],
         "headers": headers,
         "queryStringParameters": query_params if query_params else None,
+        "multiValueQueryStringParameters": multi_value_query_params if multi_value_query_params else None,
         "requestContext": {{
             "accountId": "123456789012",
             "apiId": "api-id",
