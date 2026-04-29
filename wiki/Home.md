@@ -7,14 +7,17 @@ Esta página documenta los comandos reales del proyecto `spa-cli` (CLI para proy
 ```markdown
 spa
 ├─ project
-│  ├─ init        # Inicializar proyecto (interactive)
-│  ├─ install     # Instalar capas locales (layers)
-│  ├─ run-api     # Iniciar servidor local para la API
-│  └─ build       # Construir proyecto para deployment
+│  ├─ init         # Inicializar proyecto (interactive)
+│  ├─ install      # Instalar capas locales (layers)
+│  ├─ run-api      # Iniciar servidor local para la API
+│  ├─ build        # Construir proyecto para deployment (--build-mode serverless|container)
+│  └─ docker-init  # Generar Dockerfile, docker-compose.yml, entrypoint.sh, .dockerignore
 ├─ endpoint
-│  └─ add         # Agregar endpoint HTTP y lambda asociada (--method --path --endpoint-name)
-└─ lambda
-   └─ add         # Crear lambda independiente (--lambda-name)
+│  └─ add          # Agregar endpoint HTTP y lambda asociada (--method --path --endpoint-name)
+├─ lambda
+│  └─ add          # Crear lambda independiente (--lambda-name)
+└─ authorizer
+   └─ add          # Generar Lambda Authorizer (corre como middleware en modo container)
 
 ```
 
@@ -29,7 +32,7 @@ spa-cli --version
 
 ## Comandos principales
 
-El CLI tiene tres grupos de subcomandos principales: `project`, `endpoint` y `lambda`.
+El CLI tiene cuatro grupos de subcomandos principales: `project`, `endpoint`, `lambda` y `authorizer`.
 
 ### 1) Comandos del proyecto (`spa project`)
 
@@ -61,10 +64,23 @@ El CLI tiene tres grupos de subcomandos principales: `project`, `endpoint` y `la
 
 - `spa project build`
   - Construye el proyecto para deployment: empaqueta layers, lambdas, copia infra y genera openapi.json en el build.
+  - Opción `--build-mode {serverless|container}` (default `serverless`).
+  - En modo `container`, además genera `build/src/api_local/{main_server.py, router.py, openapi.json, auth_bridge.py, auth_bridge.config.json}` y copia `Dockerfile`, `docker-compose.yml`, `entrypoint.sh`, `.dockerignore` desde la raíz del proyecto.
 
   Ejemplo:
   ```bash
   spa project build
+  spa project build --build-mode container
+  ```
+
+- `spa project docker-init`
+  - Genera `Dockerfile`, `docker-compose.yml`, `entrypoint.sh` y `.dockerignore` en la raíz del proyecto a partir de templates internos del paquete.
+  - Flag `--force` sobreescribe archivos existentes.
+
+  Ejemplo:
+  ```bash
+  spa project docker-init
+  spa project docker-init --force
   ```
 
 ### 2) Comandos de endpoints (`spa endpoint`)
@@ -93,6 +109,24 @@ El CLI tiene tres grupos de subcomandos principales: `project`, `endpoint` y `la
   spa lambda add --lambda-name procesar_facturas
   ```
 
+### 4) Comandos de Authorizer (`spa authorizer`)
+
+- `spa authorizer add <name>`
+  - Genera el stub de un Lambda Authorizer en `src/authorizers/<name>/handler.py` (template basado en validación Cognito + IAM policy).
+  - Registra `[spa.api.lambda-authorizers.<name>]` en `spa_project.toml` con `module = "src.authorizers.<name>.handler"`.
+  - El handler corre en dos contextos sin cambios: como Lambda real (deploy serverless con API Gateway) y como middleware FastAPI dentro del container (`auth_bridge.py` lo invoca cuando un request hace match con una ruta protegida en el OpenAPI).
+  - Opciones:
+    - `--role-name` : Nombre del IAM role (default `<name>-authorizer-role`).
+    - `--lambda-name` : Nombre de la función Lambda (default `<name>-authorizer`).
+
+  Ejemplo:
+  ```bash
+  spa authorizer add principal
+  spa authorizer add admin --role-name admin-auth-role --lambda-name admin-authorizer
+  ```
+
+  Ver detalle en [lambda-authorizers.md](lambda-authorizers.md) y [authorizer.md](authorizer.md).
+
 ## Comandos no habilitados
 
 El grupo `model` existe en el código base pero no está activado en el CLI principal (comentado en `spa_cli/cli.py`). Por eso las instrucciones de `spa model` no están disponibles en la versión actual.
@@ -117,11 +151,15 @@ spa endpoint add --method POST --path /usuarios --endpoint-name crear_usuario
 # 4. Agregar funciones lambda adicionales
 spa lambda add --lambda-name procesar_imagenes
 
-# 5. Probar localmente
+# 5. (Opcional) Configurar authorizers
+spa authorizer add principal
+
+# 6. Probar localmente
 spa project run-api
 
-# 6. Construir para deployment
-spa project build
+# 7. Construir para deployment
+spa project build                          # serverless (default)
+spa project build --build-mode container   # listo para Docker
 ```
 
 ## Notas y recomendaciones
