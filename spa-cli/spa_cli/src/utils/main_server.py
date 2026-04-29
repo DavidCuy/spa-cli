@@ -25,6 +25,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+try:
+    from src.api_local.auth_bridge import build_security_middleware
+    app.middleware('http')(build_security_middleware())
+except ImportError:
+    pass
+
 from src.api_local.router import router
 app.include_router(router, prefix=f"/{env.lower() or 'v1'}")
 

@@ -1,0 +1,100 @@
+"""Lambda Authorizer handler para `{authorizer_name}`.
+
+Generado por `spa authorizer add`. Edita la lógica de validación según el flujo
+real del proyecto (Cognito, JWT propio, API key, etc.).
+"""
+import os
+import json
+from enum import Enum
+
+try:
+    import boto3
+    from botocore.exceptions import ClientError
+except ImportError:  # pragma: no cover - boto3 ausente en algunos entornos locales
+    boto3 = None
+    ClientError = Exception
+
+
+class Effect(Enum):
+    ALLOW = "Allow"
+    DENY = "Deny"
+
+
+class CognitoServiceError(Exception):
+    """Cognito devolvió un error inesperado de servicio."""
+
+
+ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
+APP_NAME = os.getenv("APP_NAME", "{app_name}")
+
+_cognito_client = boto3.client("cognito-idp") if boto3 else None
+
+
+def validate_access_login(access_token: str) -> dict:
+    if not _cognito_client:
+        raise CognitoServiceError("boto3 no disponible para validar token")
+    try:
+        return _cognito_client.get_user(AccessToken=access_token)
+    except _cognito_client.exceptions.NotAuthorizedException as exc:
+        raise Exception("Unauthorized") from exc
+    except _cognito_client.exceptions.InvalidParameterException as exc:
+        raise Exception("MalformedToken") from exc
+    except ClientError as exc:
+        raise CognitoServiceError("Cognito service unavailable") from exc
+
+
+def lambda_handler(event, context):
+    raw_token = event.get("authorizationToken")
+    if not raw_token:
+        return generate_policy("user", Effect.DENY, event.get("methodArn", "*"))
+
+    token = raw_token.replace("Bearer ", "").strip()
+
+    try:
+        token_data = validate_access_login(token)
+    except CognitoServiceError:
+        return generate_policy("user", Effect.DENY, event.get("methodArn", "*"))
+
+    username = token_data.get("Username")
+    if not username:
+        return generate_policy("user", Effect.DENY, event.get("methodArn", "*"))
+
+    user_attributes = token_data.get("UserAttributes", [])
+    user_data = {{"username": username}}
+    for attr in user_attributes:
+        if not attr["Name"].startswith("custom:"):
+            user_data[attr["Name"]] = attr["Value"]
+
+    extra_info = {{"user": json.dumps(user_data)}}
+    resource = generate_resource_income(event.get("methodArn", "*"))
+    return generate_policy("user", Effect.ALLOW, resource, context=extra_info)
+
+
+def generate_resource_income(method_arn: str) -> str:
+    if ":" not in method_arn:
+        return method_arn
+    parts = method_arn.split(":")
+    apigw = parts[5].split("/")
+    return (
+        ":".join(parts[:5])
+        + ":"
+        + apigw[0]
+        + f"/{{apigw[1]}}/*/*"
+    )
+
+
+def generate_policy(principal_id: str, effect: Effect, resource, context: dict | None = None) -> dict:
+    response = {{"principalId": principal_id}}
+    response["policyDocument"] = {{
+        "Version": "2012-10-17",
+        "Statement": [
+            {{
+                "Action": "execute-api:Invoke",
+                "Effect": effect.value,
+                "Resource": resource,
+            }}
+        ],
+    }}
+    if context:
+        response["context"] = context
+    return response

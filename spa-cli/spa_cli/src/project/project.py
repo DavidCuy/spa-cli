@@ -226,7 +226,8 @@ def build_project(
     build_api(
         api_path=Path(project_config.project.definition.base_api),
         lambdas_path=build_path.joinpath('infra') / "components" / "lambdas",
-        output_file=build_path.joinpath('infra') / "components" / "openapi.json"
+        output_file=build_path.joinpath('infra') / "components" / "openapi.json",
+        build_mode=build_mode,
     )
 
     if build_mode == 'container':

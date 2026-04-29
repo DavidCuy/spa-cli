@@ -116,7 +116,7 @@ def build_lambda_stack(build_lambdas_path: Path, environment: str, app_name: str
             tags=DEFAULT_TAGS
         )\n\n""")
 
-def build_api(api_path: Path, lambdas_path: Path, output_file: Path):
+def build_api(api_path: Path, lambdas_path: Path, output_file: Path, build_mode: str = 'serverless'):
 
     config = load_config()
     api_definition = get_api_initial_definition(api_path)
@@ -149,7 +149,7 @@ def build_api(api_path: Path, lambdas_path: Path, output_file: Path):
     elif 'components' in api_definition and 'securitySchemes' in api_definition['components']:
         security_schemes = api_definition['components']['securitySchemes']
 
-    if security_schemes:
+    if security_schemes and build_mode != 'container':
         for scheme_name, scheme_config in security_schemes.items():
             if 'x-amazon-apigateway-authorizer' in scheme_config:
                 authorizer = scheme_config['x-amazon-apigateway-authorizer']
@@ -242,6 +242,22 @@ def bake_container_runtime(project_root: Path, build_path: Path, project_config:
     api_local_dir.mkdir(parents=True, exist_ok=True)
     copy2(main_server_template, api_local_dir / 'main_server.py')
     typer.echo(f"Copiado main_server.py → {api_local_dir}")
+
+    typer.echo('Generando auth_bridge.py …')
+    from .auth_bridge_gen import generate_auth_bridge
+    generate_auth_bridge(api_local_dir, project_config)
+
+    authorizers_path = project_root / 'src' / 'authorizers'
+    if authorizers_path.exists():
+        target_auth = build_path / 'src' / 'authorizers'
+        copytree(authorizers_path, target_auth, dirs_exist_ok=True)
+        typer.echo(f"Copiado {authorizers_path} → {target_auth}")
+
+    legacy_auth = project_root / 'infra' / 'components' / 'authorizers'
+    if legacy_auth.exists():
+        target_legacy = build_path / 'infra' / 'components' / 'authorizers'
+        copytree(legacy_auth, target_legacy, dirs_exist_ok=True)
+        typer.echo(f"Copiado authorizers legacy → {target_legacy}")
 
     for filename in ('spa_project.toml', 'api.yaml'):
         src = project_root / filename
