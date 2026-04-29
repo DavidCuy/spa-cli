@@ -2,7 +2,14 @@
 
 ## Descripción General
 
-A partir de la versión actual, spa-cli permite configurar custom authorizers de Lambda a través del archivo `spa_project.toml`. Esta funcionalidad permite especificar múltiples authorizers personalizados con sus propios roles y funciones Lambda.
+spa-cli permite configurar custom authorizers de Lambda a través del archivo `spa_project.toml`. Esta funcionalidad permite especificar múltiples authorizers personalizados con sus propios roles y funciones Lambda.
+
+El **mismo handler** se ejecuta en dos contextos sin cambios de código:
+
+- **Modo `serverless`** (clásico): `build_api()` sustituye los placeholders `authorizerUri` y `authorizerCredentials` con ARNs reales de AWS. API Gateway invoca la Lambda authorizer desplegada con Pulumi.
+- **Modo `container`** (`spa project build --build-mode container`): un middleware FastAPI generado (`auth_bridge.py`) recibe cada request, identifica las rutas protegidas leyendo el `openapi.json`, e invoca `lambda_handler(event, context)` localmente con un evento APIGW sintético. Sin API Gateway al frente.
+
+Para **generar el código del authorizer** y registrar la entry en `spa_project.toml` automáticamente, usa [`spa authorizer add`](authorizer.md).
 
 ## Configuración en spa_project.toml
 
@@ -14,13 +21,18 @@ Para configurar custom authorizers, agrega una sección `[spa.api.lambda-authori
 [spa.api.lambda-authorizers.nombre_clave]
 role_name = "nombre-del-rol"
 lambda_name = "nombre-de-la-lambda"
+# Opcionales (modo container):
+module = "src.authorizers.nombre_clave.handler"
+handler = "lambda_handler"
 ```
 
 ### Parámetros
 
 - **nombre_clave**: La clave debe coincidir con el nombre del security scheme en `api.yaml` sin el sufijo `_authorizer`. Por ejemplo, si tu security scheme se llama `custom1_authorizer`, la clave debe ser `custom1`.
-- **role_name**: El nombre del rol IAM que API Gateway usará para invocar la Lambda authorizer (sin prefijos de entorno o aplicación, solo el nombre base).
-- **lambda_name**: El nombre de la función Lambda authorizer (sin prefijos de entorno o aplicación, solo el nombre base).
+- **role_name**: El nombre del rol IAM que API Gateway usará para invocar la Lambda authorizer (sin prefijos de entorno o aplicación, solo el nombre base). Solo se usa en modo serverless.
+- **lambda_name**: El nombre de la función Lambda authorizer (sin prefijos de entorno o aplicación, solo el nombre base). Solo se usa en modo serverless.
+- **module** _(opcional, modo container)_: Import path del módulo Python con el handler. Default: auto-discover (`src.authorizers.<clave>.handler`, `build.infra.components.authorizers.<clave>.lambda_function`, etc.).
+- **handler** _(opcional, modo container)_: Nombre de la función dentro del módulo. Default: `lambda_handler`.
 
 ### Ejemplo Completo
 
@@ -126,9 +138,9 @@ paths:
         type: aws_proxy
 ```
 
-## Proceso de Build
+## Proceso de Build (modo serverless)
 
-Cuando ejecutas `spa project build`, el sistema:
+Cuando ejecutas `spa project build` (sin flag, o con `--build-mode serverless`), el sistema:
 
 1. **Lee la configuración** de `spa_project.toml`
 2. **Identifica los security schemes** en `api.yaml` que contienen `x-amazon-apigateway-authorizer`
@@ -181,6 +193,101 @@ El archivo generado contendrá:
   }
 }
 ```
+
+## Middleware FastAPI (modo container)
+
+Cuando ejecutas `spa project build --build-mode container`, `build_api()` **NO sustituye** los ARNs (esos placeholders solo aplican a APIGW). En su lugar, el sistema genera un middleware FastAPI que ejecuta los authorizers reales dentro del container.
+
+### Generación
+
+`bake_container_runtime()` invoca `generate_auth_bridge(api_local_dir, project_config)`:
+
+1. Copia `spa_cli/templates/auth_bridge.py.txt` (verbatim) → `build/src/api_local/auth_bridge.py`.
+2. Serializa el registry de authorizers (`module`, `handler`, `role_name`, `lambda_name`) → `build/src/api_local/auth_bridge.config.json`:
+
+   ```json
+   {
+     "principal": {
+       "module": "src.authorizers.principal.handler",
+       "handler": "lambda_handler",
+       "role_name": "principal-authorizer-role",
+       "lambda_name": "principal-authorizer"
+     }
+   }
+   ```
+
+3. Copia `src/authorizers/` (handlers generados con [`spa authorizer add`](authorizer.md)) y `build/infra/components/authorizers/` (legacy serverless si existe) al build.
+
+### Flujo en Runtime
+
+`main_server.py` carga el middleware con `try/except ImportError` (degrada graciosamente si el bridge no fue generado):
+
+```python
+try:
+    from src.api_local.auth_bridge import build_security_middleware
+    app.middleware('http')(build_security_middleware())
+except ImportError:
+    pass
+```
+
+Por cada request HTTP:
+
+1. **Indexado**: el bridge construye `(method, path) → [scheme_names]` desde `paths[].{method}.security` del `openapi.json`. Path-params (`{id}`) se convierten a regex.
+2. **Match**: si la ruta del request no tiene security declarada, passthrough.
+3. **Token extract**: lee `securityScheme.in` + `securityScheme.name` del openapi para saber dónde vive el token (`request.headers[name]`, `request.query_params[name]`, `request.cookies[name]`, o fallback a `identitySource`).
+4. **Resolve handler**: busca el `lambda_handler` en este orden:
+   - `module` explícito del registry.
+   - Auto-discover `src.authorizers.<key>.handler`.
+   - Legacy `build.infra.components.authorizers.<key>.lambda_function`.
+   - `infra.components.authorizers.<key>.lambda_function`.
+5. **Build event**: construye un evento APIGW REST v1 con `methodArn`, `authorizationToken`, `headers`, `httpMethod`, `path`, `requestContext`.
+6. **Invoke**: llama `handler(event, _MockContext())`.
+7. **Decide**:
+
+   | Resultado del handler | Status del request |
+   |-----------------------|--------------------|
+   | `Exception("Unauthorized")` | 401 |
+   | `Exception("MalformedToken")` | 422 |
+   | Otra excepción | 403 |
+   | Policy con `Statement[].Effect == "Allow"` | passthrough + `request.state.authorizer = {principalId, context, scheme}` |
+   | Policy con `Effect == "Deny"` | 403 |
+
+### Bypass
+
+Variable de entorno para debug local:
+
+```bash
+AUTH_DISABLED=true   # también acepta 1, yes
+```
+
+El middleware se vuelve passthrough. Útil para arrancar el container sin tener que mockear Cognito.
+
+### Decisiones de Diseño
+
+| Decisión | Razón |
+|----------|-------|
+| Middleware (no `Depends()` por route) | Las rutas se generan automáticamente desde `endpoint.yaml`; registrar `Depends` requeriría reescribir el generador. |
+| Token desde el swagger | `securityScheme.name` + `in` ya describen exactamente dónde vive el token; no se duplica config. |
+| OR semantics | Si una ruta declara múltiples schemes, se usa el primero que matche. APIGW evalúa OR entre el array — comportamiento equivalente para casos típicos. |
+| Skip ARN injection en container | Los ARNs solo aplican a APIGW. Mantenerlos en el openapi del container sería ruido. |
+
+### Limitaciones
+
+- Asume estructura `methodArn` v1. Si tu authorizer espera evento APIGW HTTP v2, hay que adaptar `_build_apigw_event`.
+- Si el handler usa `boto3` (Cognito), el container necesita credenciales AWS (IAM role del task o env vars `AWS_*`).
+- El context retornado se almacena en `request.state.authorizer` pero **no** se inyecta automáticamente al `event` que recibe el lambda — responsabilidad del usuario propagarlo si el lambda lo necesita.
+- Single-scheme por route. Multi-scheme con AND no soportado.
+
+### Verificación E2E
+
+Test ejecutado durante implementación con un endpoint protegido `/items/{id}` y uno público `/public`:
+
+| Escenario | Request | Resultado |
+|-----------|---------|-----------|
+| allow | `GET /items/42` con `Authorization: Bearer good` | 200 + `state.authorizer` poblado |
+| deny | `GET /items/42` con `Authorization: Bearer bad` | 403 |
+| no-tk | `GET /items/42` sin header | 401 |
+| public | `GET /public` | 200 sin tocar authorizer |
 
 ## Comportamiento por Defecto
 
@@ -413,5 +520,6 @@ lambda_name = "custom-auth"
 
 ## Referencias
 
-- [Comandos de Proyecto](project.md)
+- [Comandos de Authorizer (`spa authorizer`)](authorizer.md) — wizard que automatiza handler + entry en TOML.
+- [Comandos de Proyecto](project.md) — `spa project build --build-mode container` y `spa project docker-init`.
 - [AWS Lambda Authorizers Documentation](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-use-lambda-authorizer.html)

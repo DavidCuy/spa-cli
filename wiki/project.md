@@ -165,12 +165,15 @@ curl -X POST http://localhost:8000/usuarios \
 
 **Construye el proyecto para deployment**
 
-Compila el proyecto y genera todos los archivos necesarios para el deployment en AWS, incluyendo las capas Lambda, funciones Lambda y documentación de la API.
+Compila el proyecto y genera todos los archivos necesarios para el deployment en AWS, incluyendo las capas Lambda, funciones Lambda y documentación de la API. Soporta dos modos: `serverless` (default, AWS Lambda + API Gateway) y `container` (Docker + FastAPI).
 
 #### Sintaxis
 ```bash
-spa project build
+spa project build [--build-mode serverless|container]
 ```
+
+#### Parámetros
+- `--build-mode`: `serverless` (default) o `container`. En `container` se prepara también el runtime FastAPI dentro de `build/` para deployar en Docker (ECS, Cloud Run, etc.).
 
 #### Funcionamiento
 1. Limpia el directorio de build anterior si existe
@@ -180,7 +183,18 @@ spa project build
 5. Construye la documentación de la API
 6. Genera archivos de configuración de infraestructura
 
-#### Archivos Generados
+##### Pasos extra en modo `container`
+7. Copia `src/` (lambdas + layers) → `build/src/`
+8. Genera `build/src/api_local/router.py` (rutas FastAPI auto-generadas que invocan `lambda_handler`)
+9. Genera `build/src/api_local/openapi.json` (schema servido en `/openapi.json`)
+10. Copia `main_server.py` (template del paquete) → `build/src/api_local/main_server.py`
+11. Genera `build/src/api_local/auth_bridge.py` + `auth_bridge.config.json` — middleware que traduce Lambda Authorizers a dependencias FastAPI (ver [lambda-authorizers.md](lambda-authorizers.md))
+12. Copia `src/authorizers/` (handlers generados con `spa authorizer add`) y `build/infra/components/authorizers/` (legacy serverless si existe) → `build/`
+13. Copia `Dockerfile`, `docker-compose.yml`, `entrypoint.sh`, `.dockerignore` desde la raíz del proyecto al `build/`. Si faltan, sugiere `spa project docker-init`.
+
+En modo `container`, `build_api()` **no** sustituye `authorizerUri`/`authorizerCredentials` en el OpenAPI — esos placeholders solo aplican a Pulumi+APIGW. El bridge runtime los inspecta para identificar qué rutas requieren autenticación.
+
+#### Archivos Generados (modo serverless)
 ```
 build/
 ├── infra/
@@ -190,23 +204,70 @@ build/
 │   └── template.yaml
 ├── tmp_build_layer/
 │   └── python/
+├── Pulumi.*.yaml
 └── pyproject.toml
+```
+
+#### Archivos Generados (modo container)
+```
+build/
+├── Dockerfile
+├── docker-compose.yml
+├── entrypoint.sh
+├── .dockerignore
+├── pyproject.toml
+├── spa_project.toml
+├── api.yaml
+├── src/
+│   ├── lambdas/
+│   ├── layers/
+│   ├── authorizers/                # handlers de lambda authorizers (si los hay)
+│   │   └── {name}/handler.py
+│   └── api_local/
+│       ├── main_server.py          # FastAPI app (carga auth_bridge si existe)
+│       ├── openapi.json            # Schema servido en /openapi.json
+│       ├── router.py               # Rutas auto-generadas → lambda_handler
+│       ├── auth_bridge.py          # Middleware traductor de authorizers
+│       └── auth_bridge.config.json # Registry: {key → {module, handler, ...}}
+├── infra/                          # Mismo output que serverless
+│   └── components/
+│       ├── lambdas/
+│       │   ├── __init__.py
+│       │   └── {lambda_name}/...
+│       └── openapi.json
+└── tmp_build_layer/
 ```
 
 #### Ejemplo de Uso
 ```bash
-spa project build
+spa project build                          # serverless (default)
+spa project build --build-mode container   # FastAPI dentro de container
 ```
 
-**Salida detallada:**
+**Salida detallada (modo serverless):**
 ```
-Construyendo proyecto
+Construyendo proyecto (mode=serverless)
 Deleted directory: build
 Building layers from src/layers into build/tmp_build_layer...
 Building lambdas from src/lambdas...
 Building lambda stack...
 Building API definition...
-Build completed.
+Build completed (mode=serverless).
+```
+
+**Salida detallada (modo container):**
+```
+Construyendo proyecto (mode=container)
+...
+Building API definition...
+Preparando runtime para container...
+Generando router FastAPI local…
+Generando openapi.json para api_local…
+Copiado main_server.py → build/src/api_local
+Generando auth_bridge.py …
+Copiado auth_bridge.py → build/src/api_local/auth_bridge.py
+Generado registry de authorizers (1) → build/src/api_local/auth_bridge.config.json
+Build completed (mode=container).
 ```
 
 #### Pasos de Build Detallados
@@ -216,6 +277,55 @@ Build completed.
 4. **Procesamiento de lambdas**: Prepara funciones Lambda
 5. **Generación de API**: Crea documentación OpenAPI
 6. **Configuración de stack**: Prepara templates de despliegue
+
+---
+
+### `spa project docker-init`
+
+**Genera artefactos Docker base en la raíz del proyecto**
+
+Crea `Dockerfile`, `docker-compose.yml`, `entrypoint.sh` y `.dockerignore` desde templates internos del paquete (`spa_cli/templates/docker/*.txt`). Pensado como paso previo a `spa project build --build-mode container`.
+
+#### Sintaxis
+```bash
+spa project docker-init [--force]
+```
+
+#### Parámetros
+- `--force`: Sobreescribe archivos existentes. Sin este flag, los archivos existentes se preservan y se emite un mensaje de skip.
+
+#### Funcionamiento
+1. Lee `spa_project.toml` para obtener `app_name`.
+2. Para cada uno de los 4 archivos:
+   - Si existe y no hay `--force` → skip.
+   - Sino → renderiza el template (substituye `{app_name}` cuando aplique) y escribe.
+
+#### Ejemplo de Uso
+```bash
+spa project docker-init
+# [+] Generado: ./Dockerfile
+# [+] Generado: ./docker-compose.yml
+# [+] Generado: ./entrypoint.sh
+# [+] Generado: ./.dockerignore
+```
+
+#### Runtime del Container
+
+El `entrypoint.sh` arma `PYTHONPATH` con cada `src/layers/*/python` y arranca uvicorn:
+
+```sh
+LAYERS_DIR="src/layers"
+EXTRA_PATH=""
+for dir in "$LAYERS_DIR"/*/python; do
+  EXTRA_PATH="$EXTRA_PATH:$dir"
+done
+export PYTHONPATH="/app$EXTRA_PATH:$PYTHONPATH"
+exec uvicorn src.api_local.main_server:app --host 0.0.0.0 --port 8000
+```
+
+`main_server.py` carga el [auth_bridge](lambda-authorizers.md#middleware-fastapi-modo-container) con `try/except ImportError`; si no fue generado (proyecto sin authorizers o build serverless), el container sirve sin auth.
+
+---
 
 ## Casos de Uso Comunes
 
@@ -241,7 +351,13 @@ spa project run-api
 
 4. **Construcción para deployment**
 ```bash
+# Serverless (Pulumi + AWS Lambda + APIGW)
 spa project build
+
+# Container (Docker)
+spa project docker-init        # primera vez: genera Dockerfile etc.
+spa project build --build-mode container
+cd build && docker compose up
 ```
 
 ### Manejo de Errores

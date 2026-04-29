@@ -117,18 +117,22 @@ Cada trigger generaría el bloque Pulumi correspondiente en `infra_config.py` (e
 
 ---
 
-### 8. `spa auth add` — Wizard para Lambda Authorizers
-Actualmente configurar un Lambda Authorizer requiere editar manualmente `spa_project.toml` y `api.yaml`. Un wizard interactivo lo simplificaría.
+### 8. ~~`spa auth add` — Wizard para Lambda Authorizers~~ ✅ Implementado como `spa authorizer add`
+
+**Implementado** en branch `feat/fast-api-deploy`. Comando real:
 
 ```bash
-spa auth add
-# Prompts:
-#   Nombre del authorizer (clave): custom1
-#   Nombre de la Lambda authorizer: custom-auth
-#   Nombre del rol IAM: custom-auth-role
-#   Tipo de token [token/request]: token
-# → actualiza spa_project.toml + api.yaml automáticamente
+spa authorizer add NAME [--role-name ROLE] [--lambda-name LAMBDA]
 ```
+
+Genera `src/authorizers/<NAME>/handler.py` (template Cognito + IAM policy) y registra `[spa.api.lambda-authorizers.<NAME>]` en `spa_project.toml` con `module` apuntando al handler. El mismo handler corre como Lambda real (modo serverless) o como middleware FastAPI vía `auth_bridge.py` (modo container).
+
+Pendiente futuro (no incluido en la implementación inicial):
+- Modificar también `api.yaml` automáticamente para agregar el `securityScheme` correspondiente.
+- Wizard interactivo con prompts (hoy solo args/flags).
+- Soporte para tipo `request` (hoy template asume tipo `token`).
+
+Ver [authorizer.md](authorizer.md) y [lambda-authorizers.md](lambda-authorizers.md#middleware-fastapi-modo-container).
 
 ---
 
@@ -312,7 +316,7 @@ spa endpoint mock
 | `spa endpoint remove` / `spa lambda remove` | Bajo |
 | `spa project validate` | Medio |
 | `spa project doctor` | Medio |
-| `spa auth add` wizard | Medio |
+| ~~`spa auth add` wizard~~ → `spa authorizer add` | ✅ Hecho |
 | `spa layer add` | Medio |
 | `spa project deploy` (Pulumi) | Medio-Alto |
 | Triggers en `lambda add` | Medio-Alto |

@@ -1,0 +1,56 @@
+# ── Stage 1: builder ──────────────────────────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Use Poetry ONLY to generate requirements.txt, then install with pip
+COPY pyproject.toml poetry.lock* ./
+RUN pip install --upgrade pip \
+ && pip install poetry==1.8.3 \
+ && sed -i '/path\s*=/d' pyproject.toml \
+ && rm -f poetry.lock \
+ && poetry lock \
+ && poetry export --only main --without-hashes -o requirements.txt \
+ && pip install -r requirements.txt
+
+# Install runtime server deps (declared as dev in pyproject.toml)
+RUN pip install fastapi "uvicorn[standard]" gunicorn mangum python-dotenv
+
+# Install layer dependencies
+COPY src/layers ./src/layers
+RUN find src/layers -name "requirements.txt" | while read req; do pip install -r "$req"; done || true
+
+# Remove Poetry from venv (not needed at runtime)
+RUN pip uninstall -y poetry
+
+# ── Stage 2: runtime ─────────────────────────────────────────────
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+# Copy virtual env from builder
+COPY --from=builder /opt/venv /opt/venv
+
+COPY src ./src
+COPY spa_project.toml ./
+COPY api.yaml ./
+COPY entrypoint.sh ./
+RUN sed -i 's/\r$//' ./entrypoint.sh && chmod +x ./entrypoint.sh
+
+EXPOSE 8000
+
+CMD ["./entrypoint.sh"]

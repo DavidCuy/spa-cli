@@ -5,6 +5,9 @@ description = "Un cli para manejar proyectos serverless en aws con python"
 authors = ["David Cuy <david.cuy.sanchez@gmail.com>"]
 readme = "README.md"
 packages = [{include = "spa_cli"}]
+include = [
+    { path = "spa_cli/templates/docker/*.txt", format = ["sdist", "wheel"] },
+]
 homepage = "https://github.com/DavidCuy/spa-cli"
 repository = "https://github.com/DavidCuy/spa-cli"
 documentation = "https://github.com/DavidCuy/spa-cli"

@@ -2,7 +2,7 @@ from enum import Enum
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypeVar, Type, cast, Callable, List
+from typing import Any, Optional, TypeVar, Type, cast, Callable, List
 import typer
 import toml
 import datetime
@@ -139,13 +139,17 @@ class Definition(BaseConf):
 class LambdaAuthorizer(BaseConf):
     role_name: str
     lambda_name: str
+    module: Optional[str] = None
+    handler: Optional[str] = None
 
     @staticmethod
     def from_dict(obj: Any) -> 'LambdaAuthorizer':
         assert isinstance(obj, dict)
         role_name = from_str(obj.get("role_name"))
         lambda_name = from_str(obj.get("lambda_name"))
-        return LambdaAuthorizer(role_name, lambda_name)
+        module = obj.get("module")
+        handler = obj.get("handler")
+        return LambdaAuthorizer(role_name, lambda_name, module, handler)
 
 @dataclass
 class Api(BaseConf):
