@@ -2,7 +2,14 @@ from ...globals import Constants, DRIVERS, load_config
 from ..utils.template_gen import generate_project_template
 from ..utils.install_local_layers import install_layers, build_layers
 from ..utils.up_local_server import main as up_local_server
-from ..utils.build import build_lambdas, build_lambda_stack, build_api
+from ..utils.build import (
+    build_lambdas,
+    build_lambda_stack,
+    build_api,
+    bake_container_runtime,
+    copy_container_artifacts,
+    generate_docker_files,
+)
 
 import os
 import re
@@ -142,14 +149,29 @@ def run_app(
     
 
 @app.command('build')
-def build_project():
+def build_project(
+    build_mode: str = typer.Option(
+        'serverless',
+        '--build-mode',
+        help='Modo de build: serverless (default) o container.',
+        case_sensitive=False,
+    )
+):
+    build_mode = (build_mode or 'serverless').lower()
+    if build_mode not in ('serverless', 'container'):
+        typer.echo(
+            f"build-mode invalido: '{build_mode}'. Usa 'serverless' o 'container'.",
+            color=typer.colors.RED,
+        )
+        raise typer.Abort()
+
     try:
         project_config = load_config()
     except:
         typer.echo('No se puedo leer la configuracion del proyecto', color=typer.colors.RED)
         raise typer.Abort()
-    
-    typer.echo('Construyendo proyecto')
+
+    typer.echo(f'Construyendo proyecto (mode={build_mode})')
     build_path = Path(os.getcwd()).joinpath('build')
     if build_path.exists():
         for item in os.listdir(build_path):
@@ -207,4 +229,35 @@ def build_project():
         output_file=build_path.joinpath('infra') / "components" / "openapi.json"
     )
 
-    typer.echo('Build completed.')
+    if build_mode == 'container':
+        typer.echo('Preparando runtime para container...')
+        bake_container_runtime(
+            project_root=Path(os.getcwd()),
+            build_path=build_path,
+            project_config=project_config,
+        )
+        copy_container_artifacts(
+            project_root=Path(os.getcwd()),
+            build_path=build_path,
+        )
+
+    typer.echo(f'Build completed (mode={build_mode}).')
+
+
+@app.command('docker-init')
+def docker_init(
+    force: bool = typer.Option(False, '--force', help='Sobreescribe los archivos si ya existen.')
+):
+    """Genera Dockerfile, docker-compose.yml, entrypoint.sh y .dockerignore base en la raíz del proyecto."""
+    try:
+        project_config = load_config()
+    except:
+        typer.echo('No se puedo leer la configuracion del proyecto', color=typer.colors.RED)
+        raise typer.Abort()
+
+    generate_docker_files(
+        project_root=Path(os.getcwd()),
+        project_config=project_config,
+        force=force,
+    )
+    typer.echo('Listo. Revisa los archivos generados antes de hacer build con --build-mode container.')

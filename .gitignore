@@ -132,3 +132,9 @@ spa-cli/spa_cli/projects_config/*
 !spa-cli/spa_cli/projects_config/.gitkeep
 
 */poetry.lock
+
+spa-notes/*
+spa-notes/
+
+.claude/*
+.claude/

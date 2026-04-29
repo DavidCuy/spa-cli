@@ -5,10 +5,13 @@ import yaml
 import typer
 from pathlib import Path
 from typing import List
-from shutil import copytree
+from shutil import copytree, copy2
 from typing import cast
 
-from ...globals import load_config
+from ...globals import load_config, Config
+
+DOCKER_TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / 'templates' / 'docker'
+DOCKER_ARTIFACTS = ('Dockerfile', 'docker-compose.yml', 'entrypoint.sh', '.dockerignore')
 
 def get_lambda_dirs_with_endpoint(base_path: Path) -> List[str]:
     result = []
@@ -181,3 +184,88 @@ def build_api(api_path: Path, lambdas_path: Path, output_file: Path):
 
     with open(output_file, "w+", encoding="utf-8") as f:
         json.dump(api_definition, f, indent=2)
+
+
+def generate_docker_files(project_root: Path, project_config: Config, force: bool = False):
+    """Genera Dockerfile, docker-compose.yml, entrypoint.sh y .dockerignore en project_root."""
+    from .template_gen import copy_template_file
+
+    targets = {
+        'Dockerfile': DOCKER_TEMPLATES_DIR / 'Dockerfile.txt',
+        'docker-compose.yml': DOCKER_TEMPLATES_DIR / 'docker-compose.txt',
+        'entrypoint.sh': DOCKER_TEMPLATES_DIR / 'entrypoint.txt',
+        '.dockerignore': DOCKER_TEMPLATES_DIR / 'dockerignore.txt',
+    }
+    overrides = {
+        'app_name': project_config.project.definition.name or 'spa-app',
+    }
+
+    for filename, template_path in targets.items():
+        dest = project_root / filename
+        if dest.exists() and not force:
+            typer.echo(f"[skip] {filename} ya existe (usa --force para sobreescribir).")
+            continue
+        if not template_path.exists():
+            typer.echo(f"[!] Template no encontrado: {template_path}", color=typer.colors.RED)
+            continue
+        copy_template_file(template_path, dest, overrides)
+        typer.echo(f"[+] Generado: {dest}")
+
+
+def bake_container_runtime(project_root: Path, build_path: Path, project_config: Config):
+    """Prepara dentro de build/ los archivos que el container necesita en runtime:
+    src/ (lambdas + layers), src/api_local/{router.py, openapi.json, main_server.py},
+    spa_project.toml y api.yaml.
+    """
+    from .build_local_api import build_local_api
+    from .build_api_json import build_api_json
+
+    src_root = project_root / project_config.project.folders.root
+    if src_root.exists():
+        target_src = build_path / src_root.name
+        copytree(src_root, target_src, dirs_exist_ok=True)
+        typer.echo(f"Copiado {src_root} → {target_src}")
+    else:
+        typer.echo(f"[!] No se encontró carpeta de fuentes: {src_root}", color=typer.colors.YELLOW)
+
+    lambdas_path = project_root / project_config.project.folders.lambdas
+    api_path = project_root / project_config.project.definition.base_api
+
+    typer.echo('Generando router FastAPI local…')
+    build_local_api(lambdas_path, build_path)
+
+    typer.echo('Generando openapi.json para api_local…')
+    build_api_json(api_path, lambdas_path, build_path)
+
+    main_server_template = Path(__file__).resolve().parent / 'main_server.py'
+    api_local_dir = build_path / 'src' / 'api_local'
+    api_local_dir.mkdir(parents=True, exist_ok=True)
+    copy2(main_server_template, api_local_dir / 'main_server.py')
+    typer.echo(f"Copiado main_server.py → {api_local_dir}")
+
+    for filename in ('spa_project.toml', 'api.yaml'):
+        src = project_root / filename
+        if src.exists():
+            copy2(src, build_path / filename)
+            typer.echo(f"Copiado {filename} → {build_path}")
+
+
+def copy_container_artifacts(project_root: Path, build_path: Path):
+    """Copia Dockerfile / docker-compose.yml / entrypoint.sh / .dockerignore desde la raíz del
+    proyecto al build_path. Si faltan, sugiere correr `spa project docker-init`.
+    """
+    missing = []
+    for filename in DOCKER_ARTIFACTS:
+        src = project_root / filename
+        if not src.exists():
+            missing.append(filename)
+            continue
+        copy2(src, build_path / filename)
+        typer.echo(f"Copiado {filename} → {build_path}")
+
+    if missing:
+        typer.echo(
+            f"[!] Faltan archivos en la raíz del proyecto: {', '.join(missing)}. "
+            f"Ejecuta `spa project docker-init` para generarlos.",
+            color=typer.colors.YELLOW,
+        )
