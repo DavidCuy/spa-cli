@@ -28,6 +28,18 @@ async def {dir_name}(request: Request, response: Response):
     event = await build_event_from_request(request)
     res = {handler_name}(event, MockContext())
     response.status_code = get_status_code(res)
+    # Handle binary responses (e.g. .pkpass, files)
+    if isinstance(res, dict) and res.get("isBase64Encoded"):
+        from fastapi.responses import Response as FastAPIResponse
+        body = res.get("body", "")
+        binary_data = base64.b64decode(body) if isinstance(body, str) else body
+        headers = res.get("headers") or dict()
+        return FastAPIResponse(
+            content=binary_data,
+            status_code=response.status_code,
+            headers=headers,
+            media_type=headers.get("Content-Type") or headers.get("content-type"),
+        )
     return get_body(res)
 '''
             blocks.append(block)
