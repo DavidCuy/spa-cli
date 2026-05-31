@@ -215,7 +215,7 @@ def build_project(
     build_layers(layers_path, output_layers_path)
 
     typer.echo(f'Building lambdas from {lambdas_path}...')
-    build_lambdas(lambdas_path, build_path.joinpath('infra') / 'components' / 'lambdas')
+    build_lambdas(lambdas_path, build_path.joinpath('infra') / 'components' / 'lambdas', build_mode=build_mode)
 
     typer.echo('Building lambda stack...')
     build_lambda_stack(

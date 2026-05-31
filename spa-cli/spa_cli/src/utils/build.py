@@ -61,22 +61,23 @@ def build_api_config(lambdas_path: Path, environment: str = None, app_name: str 
 
     return endpoint_list
 
-def build_lambdas(lambdas_path: Path, build_path: Path):
+def build_lambdas(lambdas_path: Path, build_path: Path, build_mode: str = 'serverless'):
     """
     Copia toda la estructura de src/lambdas a infra/components/lambdas,
     manteniendo la jerarquía de carpetas.
+    En modo container, omite lambdas con endpoint.yaml (ya expuestas vía FastAPI router).
     """
-
-    # Crear destino si no existe
     build_path.mkdir(parents=True, exist_ok=True)
 
-    # Iterar sobre cada subcarpeta dentro de src/lambdas
     for lambda_dir in tqdm.tqdm(lambdas_path.iterdir()):
-        if lambda_dir.is_dir():
-            target = build_path / lambda_dir.name
-            # copytree falla si ya existe el destino → usamos dirs_exist_ok
-            copytree(lambda_dir, target, dirs_exist_ok=True)
-            typer.echo(f"Copiado {lambda_dir} → {target}")
+        if not lambda_dir.is_dir():
+            continue
+        if build_mode == 'container' and (lambda_dir / 'endpoint.yaml').exists():
+            typer.echo(f"[skip] {lambda_dir.name} (endpoint.yaml → manejado por router FastAPI)")
+            continue
+        target = build_path / lambda_dir.name
+        copytree(lambda_dir, target, dirs_exist_ok=True)
+        typer.echo(f"Copiado {lambda_dir} → {target}")
 
 
 def build_lambda_stack(build_lambdas_path: Path, environment: str, app_name: str):
