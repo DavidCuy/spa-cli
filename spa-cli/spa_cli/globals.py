@@ -88,7 +88,8 @@ class BaseConf:
         obj_dict = {}
         attributes = list(filter(lambda prop: not str(prop).startswith('_'), (cls_).__dataclass_fields__.keys()))
         for attr in attributes:
-            obj_dict.update({attr: from_str(obj.get(attr))})
+            val = obj.get(attr)
+            obj_dict.update({attr: from_str(val) if val is not None else None})
         return cls_(**obj_dict)
     
     def to_dict(self):
@@ -134,6 +135,7 @@ class Definition(BaseConf):
     author: str
     author_email: str
     base_api: str
+    api_build_mode: Optional[str] = None
 
 @dataclass
 class LambdaAuthorizer(BaseConf):
@@ -215,6 +217,7 @@ description = ""
 author = "David Cuy"
 author_email = ""
 base_api = "api.yaml"
+api_build_mode = "serverless"
 
 [spa.template.files]
 model = ".spa/templates/models/model.txt"

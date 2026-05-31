@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import tqdm
 import yaml
@@ -61,22 +62,23 @@ def build_api_config(lambdas_path: Path, environment: str = None, app_name: str 
 
     return endpoint_list
 
-def build_lambdas(lambdas_path: Path, build_path: Path):
+def build_lambdas(lambdas_path: Path, build_path: Path, build_mode: str = 'serverless'):
     """
     Copia toda la estructura de src/lambdas a infra/components/lambdas,
     manteniendo la jerarquía de carpetas.
+    En modo container, omite lambdas con endpoint.yaml (ya expuestas vía FastAPI router).
     """
-
-    # Crear destino si no existe
     build_path.mkdir(parents=True, exist_ok=True)
 
-    # Iterar sobre cada subcarpeta dentro de src/lambdas
     for lambda_dir in tqdm.tqdm(lambdas_path.iterdir()):
-        if lambda_dir.is_dir():
-            target = build_path / lambda_dir.name
-            # copytree falla si ya existe el destino → usamos dirs_exist_ok
-            copytree(lambda_dir, target, dirs_exist_ok=True)
-            typer.echo(f"Copiado {lambda_dir} → {target}")
+        if not lambda_dir.is_dir():
+            continue
+        if build_mode == 'container' and (lambda_dir / 'endpoint.yaml').exists():
+            typer.echo(f"[skip] {lambda_dir.name} (endpoint.yaml → manejado por router FastAPI)")
+            continue
+        target = build_path / lambda_dir.name
+        copytree(lambda_dir, target, dirs_exist_ok=True)
+        typer.echo(f"Copiado {lambda_dir} → {target}")
 
 
 def build_lambda_stack(build_lambdas_path: Path, environment: str, app_name: str):
@@ -285,3 +287,104 @@ def copy_container_artifacts(project_root: Path, build_path: Path):
             f"Ejecuta `spa project docker-init` para generarlos.",
             color=typer.colors.YELLOW,
         )
+
+
+def _parse_top_level_blocks(lines: list) -> list:
+    """Retorna lista de (start, end) 0-indexed de cada statement top-level en el archivo."""
+    blocks = []
+    i = 0
+    while i < len(lines):
+        stripped = lines[i].strip()
+        if not stripped or stripped.startswith('#'):
+            i += 1
+            continue
+        start = i
+        depth = lines[i].count('(') - lines[i].count(')') + lines[i].count('[') - lines[i].count(']')
+        i += 1
+        while i < len(lines) and depth > 0:
+            depth += lines[i].count('(') - lines[i].count(')') + lines[i].count('[') - lines[i].count(']')
+            i += 1
+        blocks.append((start, i - 1))
+    return blocks
+
+
+def check_apigw_container(build_infra_path: Path, auto_yes: bool = False) -> None:
+    """En modo container, detecta bloques activos que referencian ApiGateway en
+    infra/__main__.py, incluyendo bloques secundarios que usan sus variables.
+    Pregunta al usuario si desea comentarlos todos.
+    """
+    main_file = build_infra_path / '__main__.py'
+    if not main_file.exists():
+        return
+
+    # Clases definidas en components/apigateway.py
+    apigw_file = build_infra_path / 'components' / 'apigateway.py'
+    apigw_classes = []
+    if apigw_file.exists():
+        for line in apigw_file.read_text(encoding='utf-8').splitlines():
+            m = re.match(r'^class\s+(\w+)', line)
+            if m:
+                apigw_classes.append(m.group(1))
+
+    content = main_file.read_text(encoding='utf-8')
+    lines = content.splitlines()
+    blocks = _parse_top_level_blocks(lines)
+
+    search_terms = ['apigateway', 'ApiGateway'] + apigw_classes
+
+    # Paso 1: bloques que contienen directamente una clase ApiGateway → extrae variable
+    apigw_vars = set()
+    marked = set()
+    for idx, (start, end) in enumerate(blocks):
+        block_text = '\n'.join(lines[start:end + 1])
+        if any(t in block_text for t in search_terms):
+            marked.add(idx)
+            m = re.match(r'^\s*(\w+)\s*=', lines[start])
+            if m:
+                apigw_vars.add(m.group(1))
+
+    if not marked:
+        return
+
+    # Paso 2: bloques secundarios que referencian las variables detectadas
+    for idx, (start, end) in enumerate(blocks):
+        if idx in marked:
+            continue
+        block_text = '\n'.join(lines[start:end + 1])
+        if any(var in block_text for var in apigw_vars):
+            marked.add(idx)
+
+    lines_to_comment = set()
+    for idx in marked:
+        start, end = blocks[idx]
+        for ln in range(start, end + 1):
+            lines_to_comment.add(ln)
+
+    typer.echo('\n[!] Modo container: bloques activos con referencias a ApiGateway en infra/__main__.py:')
+    for idx in sorted(marked):
+        start, end = blocks[idx]
+        preview_end = min(start + 2, end)
+        for ln in range(start, preview_end + 1):
+            typer.echo(f'  L{ln + 1}: {lines[ln]}')
+        if end > preview_end:
+            typer.echo(f'  ... ({end - preview_end} línea(s) más)')
+
+    if auto_yes:
+        typer.echo('[-y] Auto-comentando bloques ApiGateway (--yes activo).')
+        keep = False
+    else:
+        keep = typer.confirm(
+            '\n¿Mantener la construcción del ApiGateway stack? '
+            '(No recomendado en modo container — routing lo maneja FastAPI)',
+            default=False,
+        )
+    if keep:
+        typer.echo('Manteniendo ApiGateway stack.')
+        return
+
+    new_lines = list(lines)
+    for ln in sorted(lines_to_comment):
+        if not new_lines[ln].strip().startswith('#'):
+            new_lines[ln] = '# ' + lines[ln]
+    main_file.write_text('\n'.join(new_lines) + '\n', encoding='utf-8')
+    typer.echo(f'[✓] {len(marked)} bloque(s) comentados en {main_file}')

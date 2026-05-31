@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: spa-cli
-Version: 1.1.2
+Version: 1.2.0
 Summary: Un cli para manejar proyectos serverless en AWS
 Author: David Cuy
 Author-email: david.cuy.sanchez@gmail.com
@@ -205,6 +205,7 @@ description = "Descripción del proyecto"
 author = "Tu Nombre"
 author_email = "tu@email.com"
 base_api = "api.yaml"
+api_build_mode = "serverless"
 
 [spa.template.files]
 model = ".spa/templates/models/model.txt"
