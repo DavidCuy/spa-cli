@@ -165,15 +165,30 @@ curl -X POST http://localhost:8000/usuarios \
 
 **Construye el proyecto para deployment**
 
-Compila el proyecto y genera todos los archivos necesarios para el deployment en AWS, incluyendo las capas Lambda, funciones Lambda y documentación de la API. Soporta dos modos: `serverless` (default, AWS Lambda + API Gateway) y `container` (Docker + FastAPI).
+Compila el proyecto y genera todos los archivos necesarios para el deployment en AWS, incluyendo las capas Lambda, funciones Lambda y documentación de la API. Soporta dos modos: `serverless` (AWS Lambda + API Gateway via Pulumi) y `container` (Docker + FastAPI).
 
 #### Sintaxis
 ```bash
-spa project build [--build-mode serverless|container]
+spa project build [--api-build-mode serverless|container] [-y]
 ```
 
 #### Parámetros
-- `--build-mode`: `serverless` (default) o `container`. En `container` se prepara también el runtime FastAPI dentro de `build/` para deployar en Docker (ECS, Cloud Run, etc.).
+- `--api-build-mode`: `serverless` o `container`. Si no se pasa, se lee `api_build_mode` de `[spa.project.definition]` en `spa_project.toml`. Si tampoco está definido en el toml, el comando falla con un mensaje descriptivo.
+- `--yes` / `-y`: Omite todas las confirmaciones interactivas y usa los valores por defecto. Útil en pipelines CI/CD.
+
+#### Resolución del modo de build
+
+El modo se resuelve en este orden de prioridad:
+
+1. `--api-build-mode` (argumento CLI) — tiene precedencia sobre todo.
+2. `api_build_mode` en `[spa.project.definition]` del `spa_project.toml`.
+3. Si ninguno de los dos está definido → error, el build se detiene.
+
+```toml
+# spa_project.toml
+[spa.project.definition]
+api_build_mode = "serverless"   # "serverless" | "container"
+```
 
 #### Funcionamiento
 1. Limpia el directorio de build anterior si existe
@@ -184,13 +199,17 @@ spa project build [--build-mode serverless|container]
 6. Genera archivos de configuración de infraestructura
 
 ##### Pasos extra en modo `container`
-7. Copia `src/` (lambdas + layers) → `build/src/`
-8. Genera `build/src/api_local/router.py` (rutas FastAPI auto-generadas que invocan `lambda_handler`)
-9. Genera `build/src/api_local/openapi.json` (schema servido en `/openapi.json`)
-10. Copia `main_server.py` (template del paquete) → `build/src/api_local/main_server.py`
-11. Genera `build/src/api_local/auth_bridge.py` + `auth_bridge.config.json` — middleware que traduce Lambda Authorizers a dependencias FastAPI (ver [lambda-authorizers.md](lambda-authorizers.md))
-12. Copia `src/authorizers/` (handlers generados con `spa authorizer add`) y `build/infra/components/authorizers/` (legacy serverless si existe) → `build/`
-13. Copia `Dockerfile`, `docker-compose.yml`, `entrypoint.sh`, `.dockerignore` desde la raíz del proyecto al `build/`. Si faltan, sugiere `spa project docker-init`.
+7. **Filtra lambdas**: omite las carpetas que contienen `endpoint.yaml` — esas rutas ya están expuestas por el router FastAPI; incluirlas duplicaría la lógica.
+8. **Detección de ApiGateway en `infra/__main__.py`**: analiza el archivo buscando bloques que instancien clases de `components/apigateway.py` (p.ej. `ApiGatewayStack`), extrae las variables asignadas y encuentra bloques secundarios que las referencien (`rest_api_id`, `apig_role_arn`, `pulumi.export("api_gateway_*", ...)`). Si detecta algo:
+   - Sin `--yes`: pregunta al usuario si desea mantenerlos.
+   - Con `--yes` o si el usuario responde No: comenta todos los bloques completos (multi-línea) en el archivo.
+9. Copia `src/` (lambdas + layers) → `build/src/`
+10. Genera `build/src/api_local/router.py` (rutas FastAPI auto-generadas que invocan `lambda_handler`)
+11. Genera `build/src/api_local/openapi.json` (schema servido en `/openapi.json`)
+12. Copia `main_server.py` (template del paquete) → `build/src/api_local/main_server.py`
+13. Genera `build/src/api_local/auth_bridge.py` + `auth_bridge.config.json` — middleware que traduce Lambda Authorizers a dependencias FastAPI (ver [lambda-authorizers.md](lambda-authorizers.md))
+14. Copia `src/authorizers/` (handlers generados con `spa authorizer add`) y `build/infra/components/authorizers/` (legacy serverless si existe) → `build/`
+15. Copia `Dockerfile`, `docker-compose.yml`, `entrypoint.sh`, `.dockerignore` desde la raíz del proyecto al `build/`. Si faltan, sugiere `spa project docker-init`.
 
 En modo `container`, `build_api()` **no** sustituye `authorizerUri`/`authorizerCredentials` en el OpenAPI — esos placeholders solo aplican a Pulumi+APIGW. El bridge runtime los inspecta para identificar qué rutas requieren autenticación.
 
@@ -240,8 +259,10 @@ build/
 
 #### Ejemplo de Uso
 ```bash
-spa project build                          # serverless (default)
-spa project build --build-mode container   # FastAPI dentro de container
+spa project build                               # lee api_build_mode del toml
+spa project build --api-build-mode serverless   # fuerza modo serverless
+spa project build --api-build-mode container    # fuerza modo container
+spa project build --api-build-mode container -y # container, sin prompts (CI/CD)
 ```
 
 **Salida detallada (modo serverless):**
@@ -355,8 +376,8 @@ spa project run-api
 spa project build
 
 # Container (Docker)
-spa project docker-init        # primera vez: genera Dockerfile etc.
-spa project build --build-mode container
+spa project docker-init              # primera vez: genera Dockerfile etc.
+spa project build --api-build-mode container
 cd build && docker compose up
 ```
 
@@ -391,14 +412,24 @@ spa project build
 ```
 
 ### Configuración Personalizada
-El archivo `spa_project.toml` permite personalizar rutas y configuraciones:
+El archivo `spa_project.toml` permite personalizar rutas, modo de build y otras configuraciones:
 
 ```toml
+[spa.project.definition]
+name = "mi-api"
+description = "API serverless"
+author = "Dev"
+author_email = "dev@example.com"
+base_api = "api.yaml"
+api_build_mode = "serverless"   # "serverless" | "container"
+
 [spa.project.folders]
 layers = "src/layers"
 lambdas = "src/lambdas"  
 models = "src/models"
 ```
+
+Definir `api_build_mode` en el toml evita tener que pasar `--api-build-mode` en cada llamada a `spa project build`.
 
 ## Tips y Mejores Prácticas
 
