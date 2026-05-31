@@ -156,7 +156,13 @@ def build_project(
         '--api-build-mode',
         help='Modo de build: serverless o container. Si no se pasa, lee spa_project.toml.',
         case_sensitive=False,
-    )
+    ),
+    yes: bool = typer.Option(
+        False,
+        '--yes', '-y',
+        help='Omitir confirmaciones interactivas y usar valores por defecto.',
+        is_flag=True,
+    ),
 ):
     try:
         project_config = load_config()
@@ -234,7 +240,7 @@ def build_project(
     )
 
     if build_mode == 'container':
-        check_apigw_container(build_path / 'infra')
+        check_apigw_container(build_path / 'infra', auto_yes=yes)
         typer.echo('Preparando runtime para container...')
         bake_container_runtime(
             project_root=Path(os.getcwd()),

@@ -308,7 +308,7 @@ def _parse_top_level_blocks(lines: list) -> list:
     return blocks
 
 
-def check_apigw_container(build_infra_path: Path) -> None:
+def check_apigw_container(build_infra_path: Path, auto_yes: bool = False) -> None:
     """En modo container, detecta bloques activos que referencian ApiGateway en
     infra/__main__.py, incluyendo bloques secundarios que usan sus variables.
     Pregunta al usuario si desea comentarlos todos.
@@ -369,11 +369,15 @@ def check_apigw_container(build_infra_path: Path) -> None:
         if end > preview_end:
             typer.echo(f'  ... ({end - preview_end} línea(s) más)')
 
-    keep = typer.confirm(
-        '\n¿Mantener la construcción del ApiGateway stack? '
-        '(No recomendado en modo container — routing lo maneja FastAPI)',
-        default=False,
-    )
+    if auto_yes:
+        typer.echo('[-y] Auto-comentando bloques ApiGateway (--yes activo).')
+        keep = False
+    else:
+        keep = typer.confirm(
+            '\n¿Mantener la construcción del ApiGateway stack? '
+            '(No recomendado en modo container — routing lo maneja FastAPI)',
+            default=False,
+        )
     if keep:
         typer.echo('Manteniendo ApiGateway stack.')
         return
