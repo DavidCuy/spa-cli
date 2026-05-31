@@ -10,7 +10,7 @@ spa
 │  ├─ init         # Inicializar proyecto (interactive)
 │  ├─ install      # Instalar capas locales (layers)
 │  ├─ run-api      # Iniciar servidor local para la API
-│  ├─ build        # Construir proyecto para deployment (--build-mode serverless|container)
+│  ├─ build        # Construir proyecto para deployment (--api-build-mode serverless|container)
 │  └─ docker-init  # Generar Dockerfile, docker-compose.yml, entrypoint.sh, .dockerignore
 ├─ endpoint
 │  └─ add          # Agregar endpoint HTTP y lambda asociada (--method --path --endpoint-name)
@@ -64,13 +64,15 @@ El CLI tiene cuatro grupos de subcomandos principales: `project`, `endpoint`, `l
 
 - `spa project build`
   - Construye el proyecto para deployment: empaqueta layers, lambdas, copia infra y genera openapi.json en el build.
-  - Opción `--build-mode {serverless|container}` (default `serverless`).
-  - En modo `container`, además genera `build/src/api_local/{main_server.py, router.py, openapi.json, auth_bridge.py, auth_bridge.config.json}` y copia `Dockerfile`, `docker-compose.yml`, `entrypoint.sh`, `.dockerignore` desde la raíz del proyecto.
+  - Opción `--api-build-mode {serverless|container}`. Si no se pasa, lee `api_build_mode` de `[spa.project.definition]` en `spa_project.toml`. Si tampoco está definido, falla.
+  - Flag `--yes` / `-y`: omite confirmaciones interactivas (útil en CI/CD).
+  - En modo `container`: omite lambdas con `endpoint.yaml` (ya expuestas por FastAPI), detecta y comenta bloques de ApiGateway en `infra/__main__.py`, y genera `build/src/api_local/{main_server.py, router.py, openapi.json, auth_bridge.py, auth_bridge.config.json}`.
 
   Ejemplo:
   ```bash
-  spa project build
-  spa project build --build-mode container
+  spa project build                               # lee api_build_mode del toml
+  spa project build --api-build-mode container    # fuerza modo container
+  spa project build --api-build-mode container -y # container sin prompts
   ```
 
 - `spa project docker-init`
@@ -158,8 +160,8 @@ spa authorizer add principal
 spa project run-api
 
 # 7. Construir para deployment
-spa project build                          # serverless (default)
-spa project build --build-mode container   # listo para Docker
+spa project build                               # serverless (del toml) o fuerza con --api-build-mode
+spa project build --api-build-mode container    # listo para Docker
 ```
 
 ## Notas y recomendaciones
