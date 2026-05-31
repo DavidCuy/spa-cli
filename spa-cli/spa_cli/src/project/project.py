@@ -9,6 +9,7 @@ from ..utils.build import (
     bake_container_runtime,
     copy_container_artifacts,
     generate_docker_files,
+    check_apigw_container,
 )
 
 import os
@@ -233,6 +234,7 @@ def build_project(
     )
 
     if build_mode == 'container':
+        check_apigw_container(build_path / 'infra')
         typer.echo('Preparando runtime para container...')
         bake_container_runtime(
             project_root=Path(os.getcwd()),
