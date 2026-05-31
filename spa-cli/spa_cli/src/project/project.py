@@ -151,25 +151,27 @@ def run_app(
 @app.command('build')
 def build_project(
     build_mode: str = typer.Option(
-        'serverless',
-        '--build-mode',
-        help='Modo de build: serverless (default) o container.',
+        None,
+        '--api-build-mode',
+        help='Modo de build: serverless o container. Si no se pasa, lee spa_project.toml.',
         case_sensitive=False,
     )
 ):
-    build_mode = (build_mode or 'serverless').lower()
-    if build_mode not in ('serverless', 'container'):
-        typer.echo(
-            f"build-mode invalido: '{build_mode}'. Usa 'serverless' o 'container'.",
-            color=typer.colors.RED,
-        )
-        raise typer.Abort()
-
     try:
         project_config = load_config()
     except:
         typer.echo('No se puedo leer la configuracion del proyecto', color=typer.colors.RED)
         raise typer.Abort()
+
+    resolved_mode = (build_mode or project_config.project.definition.api_build_mode or '').lower()
+    if resolved_mode not in ('serverless', 'container'):
+        typer.echo(
+            f"api-build-mode invalido o no definido: '{resolved_mode}'. "
+            f"Pasa --api-build-mode o define api_build_mode en [spa.project.definition].",
+            color=typer.colors.RED,
+        )
+        raise typer.Abort()
+    build_mode = resolved_mode
 
     typer.echo(f'Construyendo proyecto (mode={build_mode})')
     build_path = Path(os.getcwd()).joinpath('build')

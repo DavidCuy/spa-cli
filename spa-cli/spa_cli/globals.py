@@ -134,6 +134,7 @@ class Definition(BaseConf):
     author: str
     author_email: str
     base_api: str
+    api_build_mode: Optional[str] = None
 
 @dataclass
 class LambdaAuthorizer(BaseConf):
