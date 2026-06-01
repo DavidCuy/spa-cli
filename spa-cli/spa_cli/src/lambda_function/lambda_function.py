@@ -54,7 +54,8 @@ def new_lambda(
         destination_path=lambda_output_folder_path.joinpath(lambda_name).joinpath('infra_config.py'),
         code_format_override={
             "lambda_name": lambda_name,
-            "camel_name": camel_name
+            "camel_name": camel_name,
+            "provider": config.project.definition.provider or "aws",
         }
     )
 

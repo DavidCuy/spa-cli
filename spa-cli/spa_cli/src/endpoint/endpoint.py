@@ -58,7 +58,8 @@ def new_endpoint(
         destination_path=lambda_output_folder_path.joinpath(endpoint_name).joinpath('infra_config.py'),
         code_format_override={
             "lambda_name": endpoint_name,
-            "camel_name": camel_name
+            "camel_name": camel_name,
+            "provider": config.project.definition.provider or "aws",
         }
     )
     
