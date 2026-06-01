@@ -13,7 +13,7 @@ app = typer.Typer()
 def new_endpoint(
         method: str = typer.Option(..., help='Metodo de la peticion. Valores permitidos [GET, POST, PUT, PATCH, DELETE]'),
         path: str = typer.Option(..., help='Path del endpoint.'),
-        endpoint_name: str = typer.Option(help='Nombre de la funcion lambda.')
+        endpoint_name: str = typer.Option(help='Nombre de la función.')
     ):
     
     if "-" in endpoint_name or " " in endpoint_name:
@@ -40,13 +40,13 @@ def new_endpoint(
     
     copy_template_file(
         template_path=lambda_template_path,
-        destination_path=lambda_output_folder_path.joinpath(endpoint_name).joinpath('lambda_function.py'),
+        destination_path=lambda_output_folder_path.joinpath(endpoint_name).joinpath('function.py'),
         code_format_override={}
     )
     
     copy_template_file(
         template_path=lambda_test_template_path,
-        destination_path=lambda_output_folder_path.joinpath(endpoint_name).joinpath('test_lambda_function.py'),
+        destination_path=lambda_output_folder_path.joinpath(endpoint_name).joinpath('test_function.py'),
         code_format_override={
             "camel_name": camel_name,
             "lambda_name": endpoint_name

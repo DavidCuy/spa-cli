@@ -11,12 +11,12 @@ app = typer.Typer()
 
 @app.command('add')
 def new_lambda(
-        lambda_name: str = typer.Option(help='Nombre de la funcion lambda.')
+        name: str = typer.Option(help='Nombre de la función.')
     ):
     config = load_config()
-    
+    lambda_name = name
     if "-" in lambda_name or " " in lambda_name:
-        typer.echo('El nombre de la lambda no debe contener espacios o guiones. Se modificará por guiones bajos.', color=typer.colors.YELLOW)
+        typer.echo('El nombre no debe contener espacios o guiones. Se modificará por guiones bajos.', color=typer.colors.YELLOW)
         lambda_name = lambda_name.replace("-", "_").replace(" ", "_")
     camel_name = camel_case(lambda_name)
     
@@ -36,13 +36,13 @@ def new_lambda(
     
     copy_template_file(
         template_path=lambda_template_path,
-        destination_path=lambda_output_folder_path.joinpath(lambda_name).joinpath('lambda_function.py'),
+        destination_path=lambda_output_folder_path.joinpath(lambda_name).joinpath('function.py'),
         code_format_override={}
     )
     
     copy_template_file(
         template_path=lambda_test_template_path,
-        destination_path=lambda_output_folder_path.joinpath(lambda_name).joinpath('test_lambda_function.py'),
+        destination_path=lambda_output_folder_path.joinpath(lambda_name).joinpath('test_function.py'),
         code_format_override={
             "camel_name": camel_name,
             "lambda_name": lambda_name
@@ -60,5 +60,5 @@ def new_lambda(
             }
         )
 
-    typer.echo(f'La lambda {lambda_name} se agrego correctamente!', color=typer.colors.GREEN)
+    typer.echo(f'La función {lambda_name} se agregó correctamente!', color=typer.colors.GREEN)
 
