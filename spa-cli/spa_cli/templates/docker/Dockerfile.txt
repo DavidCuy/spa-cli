@@ -27,8 +27,8 @@ RUN pip install --upgrade pip \
 RUN pip install fastapi "uvicorn[standard]" gunicorn mangum python-dotenv
 
 # Install layer dependencies
-COPY src/layers ./src/layers
-RUN find src/layers -name "requirements.txt" | while read req; do pip install -r "$req"; done || true
+COPY src/libs ./src/libs
+RUN find src/libs -name "requirements.txt" | while read req; do pip install -r "$req"; done || true
 
 # Remove Poetry from venv (not needed at runtime)
 RUN pip uninstall -y poetry

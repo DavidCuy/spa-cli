@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -e
 
-LAYERS_DIR="src/layers"
+LAYERS_DIR="src/libs"
 EXTRA_PATH=""
 if [ -d "$LAYERS_DIR" ]; then
   for dir in "$LAYERS_DIR"/*/python; do

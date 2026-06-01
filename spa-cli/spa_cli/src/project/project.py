@@ -199,11 +199,11 @@ def build_project(
         typer.echo(f"Deleted directory: {build_path}")
     os.mkdir(build_path)
 
-    copytree(
-        Path(os.getcwd()).joinpath('infra'),
-        build_path.joinpath('infra'),
-        dirs_exist_ok=True
-    )
+    infra_src = Path(os.getcwd()).joinpath('infra')
+    if infra_src.exists():
+        copytree(infra_src, build_path.joinpath('infra'), dirs_exist_ok=True)
+    else:
+        build_path.joinpath('infra').mkdir(parents=True, exist_ok=True)
     
     for filename in os.listdir(Path(os.getcwd())):
         if re.compile(r'Pulumi.*').match(filename):
@@ -227,12 +227,13 @@ def build_project(
     typer.echo(f'Building lambdas from {lambdas_path}...')
     build_lambdas(lambdas_path, build_path.joinpath('infra') / 'components' / 'lambdas', build_mode=build_mode)
 
-    typer.echo('Building lambda stack...')
-    build_lambda_stack(
-        build_lambdas_path=build_path.joinpath('infra') / "components" / "lambdas",
-        environment=os.getenv("ENVIRONMENT") or "dev",
-        app_name=os.getenv("APP_NAME") or cast(str, project_config.project.definition.name)
-    )
+    if project_config.project.definition.provider != "container-cloud":
+        typer.echo('Building lambda stack...')
+        build_lambda_stack(
+            build_lambdas_path=build_path.joinpath('infra') / "components" / "lambdas",
+            environment=os.getenv("ENVIRONMENT") or "dev",
+            app_name=os.getenv("APP_NAME") or cast(str, project_config.project.definition.name)
+        )
 
     typer.echo('Building API definition...')
     build_api(

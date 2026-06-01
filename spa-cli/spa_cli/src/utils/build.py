@@ -37,7 +37,8 @@ def get_api_config(lambdas_path: Path):
     endpoint_list = []
     for dir_name in endpoint_dirs:
         module_name = 'function' if (lambdas_path / dir_name / 'function.py').exists() else 'lambda_function'
-        import_lambdas.append(f"from src.lambdas.{dir_name}.{module_name} import lambda_handler as {dir_name}_handler")
+        module_prefix = str(lambdas_path.relative_to(Path.cwd())).replace(os.sep, '.')
+        import_lambdas.append(f"from {module_prefix}.{dir_name}.{module_name} import lambda_handler as {dir_name}_handler")
 
         with open(Path(lambdas_path / dir_name / "endpoint.yaml"), 'r', encoding="utf-8") as f:
             endpoint_list.append({"definition": yaml.safe_load(f), "name": dir_name})
