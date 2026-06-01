@@ -25,7 +25,7 @@ app = typer.Typer()
 
 @app.command('init')
 def init_project(
-        pattern_version: str = typer.Option(help='Version del patron.', default='latest')
+        pattern_version: str = typer.Option(help='Version del patron.', default='v1.1.2')
     ):
     """
     Genera un nuevo proyecto con template
