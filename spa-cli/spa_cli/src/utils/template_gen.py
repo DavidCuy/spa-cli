@@ -15,6 +15,7 @@ def generate_project_template(project_name: str,
                             db_driver: str,
                             aws_region: str,
                             secret_name: str,
+                            provider: str = 'aws',
                             pattern_version = 'main',
                             project_description: str = 'Autogenerado por SPA-CLI'):
     """Descarga y configura el template de patron para Serverless
@@ -39,7 +40,8 @@ def generate_project_template(project_name: str,
         "aws_region": aws_region,
         "author_name": author_name,
         "author_email": author_email,
-        "db_secret_name": secret_name
+        "db_secret_name": secret_name,
+        "provider": provider,
     }
 
     cookiecutter_kwargs = {

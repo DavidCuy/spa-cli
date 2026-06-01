@@ -1,4 +1,4 @@
-from ...globals import Constants, DRIVERS, load_config
+from ...globals import Constants, DRIVERS, VALID_PROVIDERS, load_config
 from ..utils.template_gen import generate_project_template
 from ..utils.install_local_layers import install_layers, build_layers
 from ..utils.up_local_server import main as up_local_server
@@ -52,17 +52,25 @@ def init_project(
         type=dbChoices
     )
     
-    aws_region = typer.prompt("Región de AWS", default="us-east-1")
-    
+    provider = typer.prompt(
+        "Cloud provider",
+        default="aws",
+        type=Choice(sorted(VALID_PROVIDERS)),
+        show_choices=True,
+    )
+
+    aws_region = typer.prompt("Región de AWS", default="us-east-1") if provider == "aws" else None
+
     db_config['db_driver'] = DRIVERS[Constants.MYSQL_ENGINE.value]
-    db_config['secret_name'] = typer.prompt("Escriba el nombre del secreto para las credenciales de la base de datos - Revise la documentación para el formato correcto")
-    
+    db_config['secret_name'] = typer.prompt("Escriba el nombre del secreto para las credenciales de la base de datos - Revise la documentación para el formato correcto") if provider == "aws" else None
+
     generate_project_template(
         project_name,
         author_name=author_name,
         author_email=author_email,
         **db_config,
         aws_region=aws_region,
+        provider=provider,
         pattern_version=pattern_version,
         project_description=project_description
     )
@@ -76,7 +84,8 @@ def init_project(
         json.dump({
             "project_name": project_name,
             "dbDialect": db_config['db_engine'],
-            "pattern_version": pattern_version
+            "pattern_version": pattern_version,
+            "provider": provider,
         }, f)
     
 

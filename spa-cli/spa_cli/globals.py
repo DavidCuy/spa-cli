@@ -27,6 +27,8 @@ DRIVERS = {
     Constants.POSTGRESQL_ENGINE.value: "psycopg2"
 }
 
+VALID_PROVIDERS = {"aws", "gcp", "azure", "cloudflare"}
+
 def get_driver_from_engine(engine: Constants):
     return DRIVERS.get(engine.value, None)
 
@@ -136,6 +138,7 @@ class Definition(BaseConf):
     author_email: str
     base_api: str
     api_build_mode: Optional[str] = None
+    provider: Optional[str] = None
 
 @dataclass
 class LambdaAuthorizer(BaseConf):
@@ -218,6 +221,7 @@ author = "David Cuy"
 author_email = ""
 base_api = "api.yaml"
 api_build_mode = "serverless"
+provider = "aws"
 
 [spa.template.files]
 model = ".spa/templates/models/model.txt"
@@ -252,5 +256,13 @@ layers = "src/layers"
         toml_config = toml.loads(config_path.read_text())
     except Exception as e:
         typer.echo("Error reading the config file, please check the file format.", color=typer.colors.RED)
-        raise 
-    return Config.from_dict(toml_config["spa"])
+        raise
+    config = Config.from_dict(toml_config["spa"])
+    provider = config.project.definition.provider
+    if provider is not None and provider not in VALID_PROVIDERS:
+        typer.echo(
+            f"provider invalido: '{provider}'. Valores permitidos: {sorted(VALID_PROVIDERS)}.",
+            color=typer.colors.RED,
+        )
+        raise typer.Exit(1)
+    return config
