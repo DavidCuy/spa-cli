@@ -49,15 +49,16 @@ def new_lambda(
         }
     )
     
-    copy_template_file(
-        template_path=lambda_conf_template_path,
-        destination_path=lambda_output_folder_path.joinpath(lambda_name).joinpath('infra_config.py'),
-        code_format_override={
-            "lambda_name": lambda_name,
-            "camel_name": camel_name,
-            "provider": config.project.definition.provider or "aws",
-        }
-    )
+    if config.project.definition.provider != "container-cloud":
+        copy_template_file(
+            template_path=lambda_conf_template_path,
+            destination_path=lambda_output_folder_path.joinpath(lambda_name).joinpath('infra_config.py'),
+            code_format_override={
+                "lambda_name": lambda_name,
+                "camel_name": camel_name,
+                "provider": config.project.definition.provider or "aws",
+            }
+        )
 
     typer.echo(f'La lambda {lambda_name} se agrego correctamente!', color=typer.colors.GREEN)
 

@@ -53,15 +53,16 @@ def new_endpoint(
         }
     )
     
-    copy_template_file(
-        template_path=lambda_conf_template_path,
-        destination_path=lambda_output_folder_path.joinpath(endpoint_name).joinpath('infra_config.py'),
-        code_format_override={
-            "lambda_name": endpoint_name,
-            "camel_name": camel_name,
-            "provider": config.project.definition.provider or "aws",
-        }
-    )
+    if config.project.definition.provider != "container-cloud":
+        copy_template_file(
+            template_path=lambda_conf_template_path,
+            destination_path=lambda_output_folder_path.joinpath(endpoint_name).joinpath('infra_config.py'),
+            code_format_override={
+                "lambda_name": endpoint_name,
+                "camel_name": camel_name,
+                "provider": config.project.definition.provider or "aws",
+            }
+        )
     
     copy_template_file(
         template_path=lambda_endpoint_template_path,

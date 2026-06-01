@@ -27,7 +27,7 @@ DRIVERS = {
     Constants.POSTGRESQL_ENGINE.value: "psycopg2"
 }
 
-VALID_PROVIDERS = {"aws", "gcp", "azure", "cloudflare"}
+VALID_PROVIDERS = {"aws", "gcp", "azure", "cloudflare", "container-cloud"}
 
 def get_driver_from_engine(engine: Constants):
     return DRIVERS.get(engine.value, None)

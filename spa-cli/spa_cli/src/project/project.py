@@ -1,3 +1,4 @@
+import questionary
 from ...globals import Constants, DRIVERS, VALID_PROVIDERS, load_config
 from ..utils.template_gen import generate_project_template
 from ..utils.install_local_layers import install_layers, build_layers
@@ -17,7 +18,6 @@ import re
 import json
 import typer
 from typing import cast
-from click.types import Choice
 from pathlib import Path
 from shutil import copytree, rmtree, copy2
 
@@ -41,23 +41,17 @@ def init_project(
     author_name = typer.prompt("Nombre del autor", default=os.getlogin())
     author_email = typer.prompt("Email del autor", default="")
 
-    dbChoices = Choice([
-        Constants.MYSQL_ENGINE.value,
-        Constants.POSTGRESQL_ENGINE.value
-    ])
-    db_config['db_engine'] = typer.prompt(
-        "Elija su motor de base de datos",
-        Constants.MYSQL_ENGINE.value,
-        show_choices=True,
-        type=dbChoices
-    )
+    db_config['db_engine'] = questionary.select(
+        "Motor de base de datos:",
+        choices=[Constants.MYSQL_ENGINE.value, Constants.POSTGRESQL_ENGINE.value],
+        default=Constants.MYSQL_ENGINE.value,
+    ).ask()
     
-    provider = typer.prompt(
-        "Cloud provider",
+    provider = questionary.select(
+        "Cloud provider:",
+        choices=sorted(VALID_PROVIDERS),
         default="aws",
-        type=Choice(sorted(VALID_PROVIDERS)),
-        show_choices=True,
-    )
+    ).ask()
 
     aws_region = typer.prompt("Región de AWS", default="us-east-1") if provider == "aws" else None
 
