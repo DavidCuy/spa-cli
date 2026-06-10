@@ -119,16 +119,6 @@ class Files(BaseConf):
     test_function: str
     function_conf: str
 
-    @classmethod
-    def from_dict(cls, obj: Any) -> 'Files':
-        assert isinstance(obj, dict)
-        aliases = {'function': 'lambda_function', 'test_function': 'test_lambda', 'function_conf': 'lambda_conf'}
-        result = {}
-        for field in cls.__dataclass_fields__:
-            val = obj.get(field) or obj.get(aliases.get(field, ''))
-            result[field] = from_str(val) if val is not None else None
-        return cls(**result)
-
 
 @dataclass
 class Folders(BaseConf):
@@ -139,16 +129,6 @@ class Folders(BaseConf):
     root: str
     jsons: str
     libs: str
-
-    @classmethod
-    def from_dict(cls, obj: Any) -> 'Folders':
-        assert isinstance(obj, dict)
-        aliases = {'functions': 'lambdas', 'libs': 'layers'}
-        result = {}
-        for field in cls.__dataclass_fields__:
-            val = obj.get(field) or obj.get(aliases.get(field, ''))
-            result[field] = from_str(val) if val is not None else None
-        return cls(**result)
 
 @dataclass
 class Definition(BaseConf):
