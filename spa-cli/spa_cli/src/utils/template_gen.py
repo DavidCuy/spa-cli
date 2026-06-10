@@ -1,7 +1,7 @@
 import os
 import json
 import shutil
-from typing import cast
+from typing import cast, Optional
 from cookiecutter.main import cookiecutter
 from functools import wraps
 from typing import Any, Callable, Dict
@@ -13,8 +13,8 @@ def generate_project_template(project_name: str,
                             author_email: str,
                             db_engine: str,
                             db_driver: str,
-                            aws_region: str,
-                            secret_name: str,
+                            aws_region: Optional[str] = None,
+                            secret_name: Optional[str] = None,
                             provider: str = 'aws',
                             pattern_version = 'main',
                             project_description: str = 'Autogenerado por SPA-CLI'):
@@ -26,8 +26,8 @@ def generate_project_template(project_name: str,
         author_email (str): Email del autor
         db_engine (str): Motor de base de datos
         db_driver (str): Driver de base de datos
-        aws_region (str): Región de AWS para el proyecto
-        secret_name (str): Nombre del secreto en AWS Secret Manager
+        aws_region (str, optional): Región de AWS para el proyecto
+        secret_name (str, optional): Nombre del secreto en AWS Secret Manager
         pattern_version (str, optional): Rama o tag de github a utilizar del template. Lates utiliza la rama main.
         project_description (str, optional): Descripción del proyecto. Defaults to 'Autogenerado por SPA-CLI'.
     """
@@ -37,12 +37,14 @@ def generate_project_template(project_name: str,
         "dbDialect": db_engine,
         "_dbDriver": db_driver,
         "project_short_description": project_description,
-        "aws_region": aws_region,
         "author_name": author_name,
         "author_email": author_email,
-        "db_secret_name": secret_name,
         "provider": provider,
     }
+
+    if provider == "aws":
+        config_override["aws_region"] = aws_region
+        config_override["db_secret_name"] = secret_name
 
     cookiecutter_kwargs = {
         "directory": "code",
