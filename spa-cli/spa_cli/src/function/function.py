@@ -20,11 +20,11 @@ def new_lambda(
         lambda_name = lambda_name.replace("-", "_").replace(" ", "_")
     camel_name = camel_case(lambda_name)
     
-    lambda_template_path = Path(config.template.files.lambda_function)
-    lambda_test_template_path = Path(config.template.files.test_lambda)
-    lambda_conf_template_path = Path(config.template.files.lambda_conf)
-    
-    lambda_output_folder_path = Path(config.project.folders.lambdas)
+    lambda_template_path = Path(config.template.files.function)
+    lambda_test_template_path = Path(config.template.files.test_function)
+    lambda_conf_template_path = Path(config.template.files.function_conf)
+
+    lambda_output_folder_path = Path(config.project.folders.functions)
 
     try:
         model_exists = validate_path_not_exist(path=lambda_output_folder_path.joinpath(lambda_name), custom_error_message=f'Ya existe una ruta con nombre: {lambda_name}', abort=False)

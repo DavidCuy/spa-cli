@@ -217,8 +217,8 @@ def build_project(
     
     copy2(Path().cwd() / 'pyproject.toml', build_path / 'pyproject.toml')
 
-    layers_path = Path(os.getcwd()) / project_config.project.folders.layers
-    lambdas_path = Path(os.getcwd()) / project_config.project.folders.lambdas
+    layers_path = Path(os.getcwd()) / project_config.project.folders.libs
+    lambdas_path = Path(os.getcwd()) / project_config.project.folders.functions
     output_layers_path = build_path / 'tmp_build_layer'
 
     typer.echo(f'Building layers from {layers_path} into {output_layers_path}...')

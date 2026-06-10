@@ -115,9 +115,9 @@ class Files(BaseConf):
     service: str
     controller: str
     endpoint: str
-    lambda_function: str
-    test_lambda: str
-    lambda_conf: str
+    function: str
+    test_function: str
+    function_conf: str
 
 
 @dataclass
@@ -125,10 +125,10 @@ class Folders(BaseConf):
     models: str
     services: str
     controllers: str
-    lambdas: str
+    functions: str
     root: str
     jsons: str
-    layers: str
+    libs: str
 
 @dataclass
 class Definition(BaseConf):
@@ -228,9 +228,9 @@ model = ".spa/templates/models/model.txt"
 service = ".spa/templates/models/service.txt"
 controller = ".spa/templates/models/controller.txt"
 endpoint = ".spa/templates/aws/function_endpoint.txt"
-lambda_function = ".spa/templates/aws/function.txt"
-test_lambda = ".spa/templates/aws/test_function.txt"
-lambda_conf = ".spa/templates/aws/function_conf.txt"
+function = ".spa/templates/aws/function.txt"
+test_function = ".spa/templates/aws/test_function.txt"
+function_conf = ".spa/templates/aws/function_conf.txt"
 
 [spa.project.folders]
 root = "src"
@@ -238,8 +238,8 @@ models = "src/libs/databases/python/core_db/models"
 services = "src/libs/databases/python/core_db/services"
 controllers = "src/libs/core/python/core_http/controllers"
 jsons = ".spa/templates/json"
-lambdas = "src/functions"
-layers = "src/libs"
+functions = "src/functions"
+libs = "src/libs"
 
 # Lambda Authorizers configuration
 # Add custom authorizers with their role and lambda names

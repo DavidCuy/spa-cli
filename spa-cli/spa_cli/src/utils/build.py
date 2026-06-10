@@ -232,7 +232,7 @@ def bake_container_runtime(project_root: Path, build_path: Path, project_config:
     else:
         typer.echo(f"[!] No se encontró carpeta de fuentes: {src_root}", color=typer.colors.YELLOW)
 
-    lambdas_path = project_root / project_config.project.folders.lambdas
+    lambdas_path = project_root / project_config.project.folders.functions
     api_path = project_root / project_config.project.definition.base_api
 
     typer.echo('Generando router FastAPI local…')

@@ -19,7 +19,7 @@ def on_ok():
     typer.echo("[✓] El servidor terminó normalmente.")
 
 def main(project_config: Config, extra_args: list[str] = []):
-    lambdas_path = Path(os.getcwd()).joinpath(project_config.project.folders.lambdas)
+    lambdas_path = Path(os.getcwd()).joinpath(project_config.project.folders.functions)
     api_path = Path(os.getcwd()).joinpath(project_config.project.folders.root).parent.joinpath('api.yaml')
     base_path = Path(os.getcwd()).joinpath(project_config.project.folders.root).parent
 

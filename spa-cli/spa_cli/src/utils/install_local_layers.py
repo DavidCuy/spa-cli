@@ -80,7 +80,7 @@ def install_layers(project_config: Config):
     )
     original_path = Path(os.getcwd())
     tmp_path = Path(original_path / 'tmp-extras')
-    layers_path = Path(original_path / project_config.project.folders.layers)
+    layers_path = Path(original_path / project_config.project.folders.libs)
 
     layers = [layers_path.joinpath(layer) for layer in os.listdir(layers_path) if '__' not in layer and layers_path.joinpath(layer).is_dir()]
 
