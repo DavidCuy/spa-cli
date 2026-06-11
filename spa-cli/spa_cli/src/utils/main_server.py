@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request
-from mangum import Mangum
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from dotenv import load_dotenv
@@ -64,6 +63,10 @@ def read_root(request: Request):
     }
 
 
-# to make it work with Amazon Lambda, we create a handler object
-handler = Mangum(app=app)
+# AWS Lambda handler — only when mangum is available (AWS provider)
+try:
+    from mangum import Mangum
+    handler = Mangum(app=app)
+except ImportError:
+    pass
 

@@ -69,9 +69,9 @@ from typing import Optional, Dict, List, Any, cast
 
 class MockContext:
     def __init__(self):
-        self.function_name = "role_users_report"
+        self.function_name = "local_function"
         self.memory_limit_in_mb = 50
-        self.invoked_function_arn = "arn:aws:lambda:aws-region-1:123456789012:function:role_users_report"
+        self.invoked_function_arn = ""
         self.aws_request_id = str(uuid.uuid4())
 
 async def build_event_from_request(request: Request) -> Dict[str, Any]:

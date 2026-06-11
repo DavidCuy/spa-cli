@@ -129,6 +129,8 @@ class Folders(BaseConf):
     root: str
     jsons: str
     libs: str
+    infra_functions: Optional[str] = None
+    infra_openapi: Optional[str] = None
 
 @dataclass
 class Definition(BaseConf):
@@ -240,6 +242,8 @@ controllers = "src/libs/core/python/core_http/controllers"
 jsons = ".spa/templates/json"
 functions = "src/functions"
 libs = "src/libs"
+infra_functions = "infra/providers/aws/components/lambdas"
+infra_openapi = "infra/providers/aws/components/openapi.json"
 
 # Lambda Authorizers configuration
 # Add custom authorizers with their role and lambda names

@@ -187,6 +187,7 @@ def build_api(api_path: Path, lambdas_path: Path, output_file: Path, build_mode:
                         # Default behavior for non-configured authorizers
                         authorizer['authorizerCredentials'] = f'arn:aws:iam::{aws_account}:role/{environment}-{app_name}-authorizer-role'
 
+    output_file.parent.mkdir(parents=True, exist_ok=True)
     with open(output_file, "w+", encoding="utf-8") as f:
         json.dump(api_definition, f, indent=2)
 

@@ -55,7 +55,7 @@ def init_project(
 
     aws_region = typer.prompt("Región de AWS", default="us-east-1") if provider == "aws" else None
 
-    db_config['db_driver'] = DRIVERS[Constants.MYSQL_ENGINE.value]
+    db_config['db_driver'] = DRIVERS[db_config['db_engine']]
     db_config['secret_name'] = typer.prompt("Escriba el nombre del secreto para las credenciales de la base de datos - Revise la documentación para el formato correcto") if provider == "aws" else None
 
     generate_project_template(
@@ -202,8 +202,6 @@ def build_project(
     infra_src = Path(os.getcwd()).joinpath('infra')
     if infra_src.exists():
         copytree(infra_src, build_path.joinpath('infra'), dirs_exist_ok=True)
-    else:
-        build_path.joinpath('infra').mkdir(parents=True, exist_ok=True)
     
     for filename in os.listdir(Path(os.getcwd())):
         if re.compile(r'Pulumi.*').match(filename):
@@ -224,27 +222,35 @@ def build_project(
     typer.echo(f'Building layers from {layers_path} into {output_layers_path}...')
     build_layers(layers_path, output_layers_path)
 
-    typer.echo(f'Building lambdas from {lambdas_path}...')
-    build_lambdas(lambdas_path, build_path.joinpath('infra') / 'components' / 'lambdas', build_mode=build_mode)
+    provider = project_config.project.definition.provider or "aws"
+    infra_functions = project_config.project.folders.infra_functions
+    infra_openapi = project_config.project.folders.infra_openapi
 
-    if project_config.project.definition.provider != "container-cloud":
-        typer.echo('Building lambda stack...')
-        build_lambda_stack(
-            build_lambdas_path=build_path.joinpath('infra') / "components" / "lambdas",
-            environment=os.getenv("ENVIRONMENT") or "dev",
-            app_name=os.getenv("APP_NAME") or cast(str, project_config.project.definition.name)
+    if infra_functions:
+        lambdas_build_path = build_path / infra_functions
+        typer.echo(f'Building functions from {lambdas_path}...')
+        build_lambdas(lambdas_path, lambdas_build_path, build_mode=build_mode)
+
+        if provider != "container-cloud":
+            typer.echo('Building lambda stack...')
+            build_lambda_stack(
+                build_lambdas_path=lambdas_build_path,
+                environment=os.getenv("ENVIRONMENT") or "dev",
+                app_name=os.getenv("APP_NAME") or cast(str, project_config.project.definition.name)
+            )
+
+    if infra_openapi:
+        typer.echo('Building API definition...')
+        build_api(
+            api_path=Path(project_config.project.definition.base_api),
+            lambdas_path=lambdas_path,
+            output_file=build_path / infra_openapi,
+            build_mode=build_mode,
         )
 
-    typer.echo('Building API definition...')
-    build_api(
-        api_path=Path(project_config.project.definition.base_api),
-        lambdas_path=build_path.joinpath('infra') / "components" / "lambdas",
-        output_file=build_path.joinpath('infra') / "components" / "openapi.json",
-        build_mode=build_mode,
-    )
-
     if build_mode == 'container':
-        check_apigw_container(build_path / 'infra', auto_yes=yes)
+        if (build_path / 'infra').exists():
+            check_apigw_container(build_path / 'infra', auto_yes=yes)
         typer.echo('Preparando runtime para container...')
         bake_container_runtime(
             project_root=Path(os.getcwd()),
