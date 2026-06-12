@@ -8,6 +8,7 @@ from .src.model import model
 from .src.endpoint import endpoint
 from .src.function import function
 from .src.authorizer import authorizer
+from .src.learn import learn
 
 load_dotenv()
 
@@ -17,6 +18,7 @@ app.add_typer(project.app, name='project')
 app.add_typer(endpoint.app, name='endpoint')
 app.add_typer(function.app, name='function')
 app.add_typer(authorizer.app, name='authorizer')
+app.add_typer(learn.app, name='learn')
 
 
 @app.callback(invoke_without_command=True)

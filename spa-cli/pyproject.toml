@@ -7,6 +7,7 @@ readme = "README.md"
 packages = [{include = "spa_cli"}]
 include = [
     { path = "spa_cli/templates/docker/*.txt", format = ["sdist", "wheel"] },
+    { path = "spa_cli/stories/*.md", format = ["sdist", "wheel"] },
 ]
 homepage = "https://github.com/DavidCuy/spa-cli"
 repository = "https://github.com/DavidCuy/spa-cli"
