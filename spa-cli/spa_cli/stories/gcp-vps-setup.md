@@ -48,7 +48,9 @@ GCP crea el usuario Linux a partir del comentario de la clave (último campo). P
 |---|---|
 | Dirección | Ingress |
 | IP de origen | `0.0.0.0/0` |
-| Protocolos/puertos | TCP: `22, 80, 8000` |
+| Protocolos/puertos | TCP: `22, 80, 443, 8000` |
+
+> Puerto 80 es obligatorio para que Certbot pueda validar el dominio al configurar SSL (HTTP-01 challenge). Sin él, la emisión del certificado fallará con timeout.
 
 ## 4. Conectar por SSH
 
@@ -77,4 +79,4 @@ docker ps
 
 ## Siguiente paso
 
-Con el VPS listo, sigue con el deploy: `spa tell-me a-story ansible-container-deploy`
+Con el VPS listo, sigue con el deploy: `spa learn ansible-container-deploy`
