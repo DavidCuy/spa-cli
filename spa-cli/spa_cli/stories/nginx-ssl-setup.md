@@ -101,6 +101,28 @@ Los certificados se renuevan solos antes de vencer (cada 90 días).
 
 ---
 
+## Rewrite de rutas con prefijo de entorno
+
+Si el backend espera un prefijo de entorno (ej. Lambda stage `/dev/`, `/prod/`), agrega un `rewrite` en `location /`:
+
+```nginx
+location / {
+    rewrite ^/(.*)$ /dev/$1 break;
+
+    proxy_pass http://localhost:8000;
+    ...
+}
+```
+
+`break` → aplica rewrite y detiene procesamiento. Query strings pasan automáticas.
+
+> El valor `/dev/` viene de la variable `STAGE` (o equivalente) en tu `.env`.
+> Ejemplos: `test-spa-cli.tulipan.mx/hello` → `localhost:8000/dev/hello`
+
+Después de editar: `nginx -t && systemctl reload nginx`
+
+---
+
 ## Solución de problemas
 
 | Error | Causa | Solución |
