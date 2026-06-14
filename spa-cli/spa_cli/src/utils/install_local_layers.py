@@ -158,7 +158,16 @@ def build_layers(layers_path: Path, tmp_path: Path = Path('tmp_build_layer')):
         layer_path_res = str(tmp_path.joinpath(layer).joinpath('python').resolve())
         req_path = str(tmp_path.joinpath(layer).joinpath('python').joinpath('requirements.txt').resolve())
         try:
-            typer.echo(f'running command: pip install -r {req_path} -t {layer_path_res}')
-            os.system(f'pip install -r {req_path} -t {layer_path_res}')
+            py_ver = f"{sys.version_info.major}{sys.version_info.minor}"
+            cmd = [
+                sys.executable, "-m", "pip", "install",
+                "-r", req_path, "-t", layer_path_res,
+                "--platform", "manylinux2014_x86_64",
+                "--python-version", py_ver,
+                "--only-binary=:all:",
+                "--implementation", "cp",
+            ]
+            typer.echo(f'running command: {" ".join(cmd)}')
+            subprocess.run(cmd, check=True)
         except Exception as e:
             typer.echo(f"WARNING: {str(e)}", color=typer.colors.YELLOW)
