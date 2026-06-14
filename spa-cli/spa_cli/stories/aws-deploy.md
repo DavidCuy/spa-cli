@@ -36,7 +36,23 @@ aws sts get-caller-identity --query Account --output text
 
 ---
 
-## 2. Build del proyecto
+## 2. Lambda corre en Amazon Linux — librerías nativas
+
+Las funciones Lambda ejecutan en **Amazon Linux 2023 (x86_64)**. Las librerías con extensiones C (como `psycopg2`, `cryptography`, `numpy`) deben estar compiladas para ese SO.
+
+Si buildeas en Windows o macOS e instalas las dependencias normalmente, subirás binarios incompatibles y Lambda fallará con:
+
+```
+Runtime.ImportModuleError: Unable to import module 'function': No module named 'psycopg2._psycopg'
+```
+
+`spa project build` maneja esto automáticamente usando el flag `--platform manylinux2014_x86_64` al instalar las dependencias del layer. No necesitas hacer nada extra — solo asegúrate de buildear con `spa project build` y no instalar dependencias del layer manualmente.
+
+> Si agregas una librería nativa nueva al `requirements.txt` del layer, siempre rebuildea con `spa project build` antes de `pulumi up`.
+
+---
+
+## 3. Build del proyecto
 
 ```bash
 spa project build --yes
@@ -50,7 +66,7 @@ Genera la carpeta `build/` con:
 
 ---
 
-## 2. Conectar Pulumi al backend S3
+## 4. Conectar Pulumi al backend S3
 
 ```bash
 pulumi login s3://<project>-pulumi-state
@@ -60,7 +76,7 @@ Solo necesario la primera vez por sesión (o si cambiaste de backend).
 
 ---
 
-## 3. Seleccionar o inicializar el stack
+## 5. Seleccionar o inicializar el stack
 
 Si el stack ya existe:
 
@@ -78,7 +94,7 @@ pulumi stack init prod --secrets-provider="awskms://alias/<project>-pulumi"
 
 ---
 
-## 4. Configurar variables del stack
+## 6. Configurar variables del stack
 
 ```bash
 pulumi config set project:env prod
@@ -93,7 +109,7 @@ pulumi config set --secret project:db_password "tu_password"
 
 ---
 
-## 5. Deploy
+## 7. Deploy
 
 ```bash
 pulumi up
