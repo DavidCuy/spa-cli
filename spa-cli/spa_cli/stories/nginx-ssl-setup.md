@@ -106,18 +106,46 @@ Los certificados se renuevan solos antes de vencer (cada 90 días).
 Si el backend espera un prefijo de entorno (ej. Lambda stage `/dev/`, `/prod/`), agrega un `rewrite` en `location /`:
 
 ```nginx
+# Sin rewrite: raíz y rutas de documentación
+location ~ ^(/|/openapi\.json|/docs|/redoc)$ {
+    limit_req zone=api_limit burst=20 nodelay;
+
+    proxy_pass http://localhost:8000;
+    proxy_http_version 1.1;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_connect_timeout 60s;
+    proxy_send_timeout    60s;
+    proxy_read_timeout    60s;
+}
+
+# Con rewrite: todo lo demás
 location / {
+    limit_req zone=api_limit burst=20 nodelay;
+
     rewrite ^/(.*)$ /dev/$1 break;
 
     proxy_pass http://localhost:8000;
-    ...
+    proxy_http_version 1.1;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_connect_timeout 60s;
+    proxy_send_timeout    60s;
+    proxy_read_timeout    60s;
 }
 ```
 
 `break` → aplica rewrite y detiene procesamiento. Query strings pasan automáticas.
 
+Nginx evalúa `~` regex antes que `location /` genérico → excepciones ganan.
+
 > El valor `/dev/` viene de la variable `STAGE` (o equivalente) en tu `.env`.
-> Ejemplos: `test-spa-cli.tulipan.mx/hello` → `localhost:8000/dev/hello`
+> Rutas sin rewrite: `/`, `/openapi.json`, `/docs`, `/redoc`
+> Con rewrite: `test-spa-cli.tulipan.mx/hello` → `localhost:8000/dev/hello`
 
 Después de editar: `nginx -t && systemctl reload nginx`
 
